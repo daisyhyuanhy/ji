@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌟 桃气紫随手记 v4 (支持导入) 🌟</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { 
+            --primary: #7a73b0;       
+            --primary-light: #f3f2fa; 
+            --primary-soft: #d3cfe5;  
+            --expense: #ff9aa2;       
+            --income: #b5ead7;        
+            --bg: #e8e7f5;            
+            --text: #4a4563;          
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 25px; 
+            color: var(--text);
+        }
+        
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        h1 { margin: 0; font-size: 26px; color: var(--primary); font-weight: 800; text-shadow: 1px 1px 0px #fff; }
+        
+        /* 看板 */
+        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 25px; }
+        .card { background: #ffffff; padding: 20px 15px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); text-align: center; border: 2px solid #fff; }
+        .card h3 { margin: 0 0 6px 0; font-size: 13px; color: #928ca9; }
+        .card p { margin: 0; font-size: 24px; font-weight: 800; }
+
+        /* 布局 */
+        .grid-layout { display: grid; grid-template-columns: 330px 1fr 330px; gap: 25px; }
+        @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
+        
+        .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); height: fit-content; border: 2px solid #fff; }
+        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; }
+        h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
+
+        /* 表单与组件 */
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #7f7999; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid var(--primary-light); background: var(--primary-light); border-radius: 10px; box-sizing: border-box; font-size: 13px; color: var(--text); outline: none; font-weight: 600; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary-soft); background: #fff; }
+        
+        .btn { border: none; padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary { background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 14px; margin-top: 5px; }
+        .btn-primary:hover { background: #6861a0; }
+        .btn-success { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+        .btn-success:hover { background: var(--primary); color: white; }
+        
+        .inline-form { display: flex; gap: 6px; margin-top: 10px; }
+
+        /* 导入区（可爱拖拽树洞） */
+        .import-zone {
+            border: 2px dashed var(--primary-soft);
+            background: var(--primary-light);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .import-zone:hover { background: #fff; border-color: var(--primary); }
+        .import-zone p { margin: 0; font-size: 12px; font-weight: bold; color: var(--primary); }
+        .import-zone span { font-size: 10px; color: #9c97b8; display: block; margin-top: 4px; }
+
+        /* 流水列表 */
+        .list-container { max-height: 380px; overflow-y: auto; padding-right: 5px; }
+        .list-container::-webkit-scrollbar, .config-list::-webkit-scrollbar { width: 6px; }
+        .list-container::-webkit-scrollbar-thumb, .config-list::-webkit-scrollbar-thumb { background: var(--primary-soft); border-radius: 10px; }
+        
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary-light); border-radius: 12px; margin-bottom: 10px; border: 1px solid #fff; }
+        .item .cate-tag { font-size: 11px; background: #e0dbff; color: var(--primary); padding: 3px 8px; border-radius: 6px; margin-right: 5px; font-weight: 700; }
+        .item .sub-tag { font-size: 11px; background: #fff; color: #6f698a; padding: 3px 8px; border-radius: 6px; border: 1px solid #e1def2; font-weight: 600; }
+        .item .meta { font-size: 11px; color: #9c97b8; margin-top: 6px; }
+        .amt { font-weight: 800; font-size: 15px; text-shadow: 1px 1px 0 #fff; }
+        .amt.EXPENSE { color: #e56b73; }
+        .amt.INCOME { color: #43aa8b; }
+
+        /* 配置面板 */
+        .config-list { max-height: 130px; overflow-y: auto; border: 2px solid var(--primary-light); padding: 10px; border-radius: 12px; margin-bottom: 12px; font-size: 12px; background: var(--primary-light); }
+        .config-item { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #dedae8; align-items: center; font-weight: 600; }
+        .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 16px; }
+        .chart-wrapper { padding: 10px; background: var(--primary-light); border-radius: 14px; margin-top: 20px; border: 1px solid #fff; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-bar">
+        <h1>🔮 缘の账本</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-success" onclick="exportToExcel()">导出备份 🌸</button>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥0.00</p></div>
+        <div class="card"><h3>本期收入鸭</h3><p id="totalIncome" style="color:#43aa8b">¥0.00</p></div>
+        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥0.00</p></div>
+    </div>
+
+    <div class="grid-layout">
+        <div class="box">
+            <h2>记一笔小账</h2>
+            <form id="ledgerForm">
+                <div class="form-group">
+                    <label>账目方向</label>
+                    <select id="txType" onchange="renderCategoryCascade()">
+                        <option value="EXPENSE">🌸 支出钱钱</option>
+                        <option value="INCOME">💰 收入钱钱</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>交易金额 (元)</label>
+                    <input type="number" id="txAmount" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>一级大类</label>
+                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select>
+                </div>
+                <div class="form-group">
+                    <label>二级细分类</label>
+                    <select id="txSubCate"></select>
+                </div>
+                <div class="form-group">
+                    <label>支付/收款账户</label>
+                    <select id="txAccount"></select>
+                </div>
+                <div class="form-group">
+                    <label>记账日期</label>
+                    <input type="date" id="txDate" required>
+                </div>
+                <div class="form-group">
+                    <label>备忘小树洞</label>
+                    <input type="text" id="txRemark" placeholder="写点什么好呢...">
+                </div>
+                <button type="submit" class="btn btn-primary">打包保存起来 ✨</button>
+            </form>
+        </div>
+
+        <div class="box">
+            <div class="import-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p>📂 戳我或把备份表格(CSV)拖到这里导入</p>
+                <span>将自动识别并合并去重哦 (｡♥‿♥｡)</span>
+                <input type="file" id="fileInput" accept=".csv" style="display:none;" onchange="handleFileSelect(event)">
+            </div>
+
+            <h2>账目流水日记本</h2>
+            <div class="list-container" id="historyList"></div>
+            <div class="chart-wrapper">
+                <canvas id="analyticsChart" height="120"></canvas>
+            </div>
+        </div>
+
+        <div class="box">
+            <h2>小金库账户管理</h2>
+            <div class="config-list" id="accountConfigList"></div>
+            <div class="inline-form">
+                <input type="text" id="newAccountName" placeholder="新账户名">
+                <input type="number" id="newAccountInit" placeholder="初始" style="width:65px;">
+                <button class="btn btn-primary" style="width:40px; padding:0;" onclick="addCustomAccount()">+</button>
+            </div>
+
+            <h2 style="margin-top: 25px;">自定义花销分类</h2>
+            <div class="form-group">
+                <select id="configType" onchange="renderConfigCateCascade()">
+                    <option value="EXPENSE">修改支出项</option>
+                    <option value="INCOME">修改收入项</option>
+                </select>
+            </div>
+            
+            <div class="config-list" id="cateConfigList"></div>
+            
+            <div class="inline-form">
+                <input type="text" id="newPrimaryName" placeholder="新增主大类">
+                <button class="btn btn-primary" style="width:80px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
+            </div>
+            
+            <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:10px; margin-top:10px;">
+                <select id="configPrimarySelect" style="width:40%;"></select>
+                <input type="text" id="newSubName" placeholder="新增二级子类" style="width:45%;">
+                <button class="btn btn-primary" style="width:50px; padding:0; font-size:12px;" onclick="addSubCategory()">加子类</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let storage = {
+        accounts: JSON.parse(localStorage.getItem('v4_accounts')) || [
+            {name: '微信支付', balance: 0}, {name: '支付宝', balance: 0}, {name: '小金库现金', balance: 0}
+        ],
+        categories: JSON.parse(localStorage.getItem('v4_categories')) || {
+            EXPENSE: { '餐饮美食': ['买奶茶 🥤', '开心火锅 🍲', '元气早餐 🍞'], '休闲娱乐': ['猫咖体验 🐱', '抓娃娃 🧸'] },
+            INCOME: { '日常兼职': ['家教补贴', '手作副业'], '生活福利': ['长辈投喂', '手气红包'] }
+        },
+        transactions: JSON.parse(localStorage.getItem('v4_transactions')) || []
+    };
+
+    let chartInstance = null;
+
+    window.onload = function() {
+        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
+        initDragAndDrop();
+        refreshAllUI();
+    };
+
+    function saveToStorage() {
+        localStorage.setItem('v4_accounts', JSON.stringify(storage.accounts));
+        localStorage.setItem('v4_categories', JSON.stringify(storage.categories));
+        localStorage.setItem('v4_transactions', JSON.stringify(storage.transactions));
+    }
+
+    /* 核心导入解析逻辑 */
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) processFile(file);
+    }
+
+    function initDragAndDrop() {
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = '#fff'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.background = 'var(--primary-light)'; });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.background = 'var(--primary-light)';
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+    }
+
+    function processFile(file) {
+        const reader = new FileReader();
+        reader.readAsText(file, "UTF-8");
+        reader.onload = function (e) {
+            const text = e.target.result;
+            parseCSVData(text);
+        };
+    }
+
+    function parseCSVData(text) {
+        const lines = text.split(/\r?\n/);
+        if (lines.length <= 1) { alert("表格里好像没有数据呢~"); return; }
+
+        let importCount = 0;
+        let skipCount = 0;
+
+        // 获取现有的 ID 集合用于无损去重
+        const existingIds = new Set(storage.transactions.map(t => t.id));
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            
+            // 处理包含引号的 CSV 复杂字段
+            let row = [];
+            let insideQuote = false;
+            let entries = lines[i].split(',');
+            
+            // 简单的 CSV 备注逗号包裹处理
+            let lineData = lines[i];
+            let parts = [];
+            let current = '';
+            for(let char of lineData) {
+                if(char === '"') { insideQuote = !insideQuote; }
+                else if(char === ',' && !insideQuote) { parts.push(current); current = ''; }
+                else { current += char; }
+            }
+            parts.push(current);
+
+            if (parts.length < 7) continue;
+
+            let id = parts[0].trim();
+            // 如果导入的文件没有包含TX开头的系统ID（比如用户手写的数据），则随机赋予一个
+            if (!id.startsWith('TX')) { id = 'TX' + (Date.now() + i); }
+
+            // 重复行判定
+            if (existingIds.has(id)) { skipCount++; continue; }
+
+            const item = {
+                id: id,
+                date: parts[1].trim(),
+                type: parts[2].trim() === '收入' ? 'INCOME' : 'EXPENSE',
+                primaryCate: parts[3].trim(),
+                subCate: parts[4].trim(),
+                account: parts[5].trim(),
+                amount: parseFloat(parts[6].trim()) || 0,
+                remark: parts[7] ? parts[7].trim().replace(/^"|"$/g, '') : '无'
+            };
+
+            // 智能补全机制：如果导入了不存在的账户或分类，自动在配置里建立
+            if (!storage.accounts.some(a => a.name === item.account)) {
+                storage.accounts.push({ name: item.account, balance: 0 });
+            }
+            if (!storage.categories[item.type][item.primaryCate]) {
+                storage.categories[item.type][item.primaryCate] = [item.subCate];
+            } else if (!storage.categories[item.type][item.primaryCate].includes(item.subCate)) {
+                storage.categories[item.type][item.primaryCate].push(item.subCate);
+            }
+
+            storage.transactions.push(item);
+            importCount++;
+        }
+
+        // 按日期重新对流水排序（新记的在前）
+        storage.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        saveToStorage();
+        refreshAllUI();
+        alert(`🎉 成功同步导入 ${importCount} 笔新流水！(跳过重复账目 ${skipCount} 笔)`);
+        document.getElementById('fileInput').value = ''; // 清空选择
+    }
+
+    /* 延续基础渲染逻辑 */
+    function refreshAllUI() {
+        renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard();
+    }
+
+    function renderAccountSelectors() {
+        document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+    }
+
+    function renderCategoryCascade() {
+        const type = document.getElementById('txType').value;
+        const primaries = Object.keys(storage.categories[type]);
+        document.getElementById('txPrimaryCate').innerHTML = primaries.map(p => `<option value="${p}">${p}</option>`).join('');
+        renderSubCategoryCascade();
+    }
+
+    function renderSubCategoryCascade() {
+        const type = document.getElementById('txType').value;
+        const priValue = document.getElementById('txPrimaryCate').value;
+        if (!priValue) { document.getElementById('txSubCate').innerHTML = ''; return; }
+        const subs = storage.categories[type][priValue] || [];
+        document.getElementById('txSubCate').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    function renderConfigLists() {
+        document.getElementById('accountConfigList').innerHTML = storage.accounts.map((a, i) => `
+            <div class="config-item"><span>💰 ${a.name} (￥${a.balance})</span><span class="del-btn" onclick="deleteAccount(${i})">×</span></div>
+        `).join('');
+
+        const type = document.getElementById('configType').value;
+        let html = ''; const data = storage.categories[type];
+        for (let pri in data) {
+            html += `<div style="font-weight:bold; margin-top:6px; color:var(--primary);">✨ ${pri} <span class="del-btn" style="font-size:12px;" onclick="deletePrimaryCategory('${type}','${pri}')">[删]</span></div>`;
+            data[pri].forEach((sub, idx) => {
+                html += `<div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ ${sub}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${pri}', ${idx})">×</span></div>`;
+            });
+        }
+        document.getElementById('cateConfigList').innerHTML = html;
+        document.getElementById('configPrimarySelect').innerHTML = Object.keys(data).map(p => `<option value="${p}">${p}</option>`).join('');
+    }
+
+    function renderConfigCateCascade() { renderConfigLists(); }
+
+    function addCustomAccount() {
+        const name = document.getElementById('newAccountName').value.trim();
+        const initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
+        if(!name) return; storage.accounts.push({name: name, balance: initBal});
+        saveToStorage(); refreshAllUI();
+        document.getElementById('newAccountName').value = ''; document.getElementById('newAccountInit').value = '';
+    }
+
+    function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); }
+
+    function addPrimaryCategory() {
+        const type = document.getElementById('configType').value;
+        const name = document.getElementById('newPrimaryName').value.trim();
+        if(!name || storage.categories[type][name]) return;
+        storage.categories[type][name] = []; saveToStorage(); refreshAllUI();
+        document.getElementById('newPrimaryName').value = '';
+    }
+
+    function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); }
+
+    function addSubCategory() {
+        const type = document.getElementById('configType').value;
+        const pri = document.getElementById('configPrimarySelect').value;
+        const subName = document.getElementById('newSubName').value.trim();
+        if(!pri || !subName || storage.categories[type][pri].includes(subName)) return;
+        storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI();
+        document.getElementById('newSubName').value = '';
+    }
+
+    function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); }
+
+    document.getElementById('ledgerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const item = {
+            id: 'TX' + Date.now(),
+            type: document.getElementById('txType').value,
+            amount: parseFloat(document.getElementById('txAmount').value),
+            primaryCate: document.getElementById('txPrimaryCate').value,
+            subCate: document.getElementById('txSubCate').value || '日常',
+            account: document.getElementById('txAccount').value,
+            date: document.getElementById('txDate').value,
+            remark: document.getElementById('txRemark').value || '贴心留白'
+        };
+        storage.transactions.unshift(item);
+        saveToStorage(); refreshAllUI();
+        document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
+    });
+
+    function deleteTransaction(id) { storage.transactions = storage.transactions.filter(t => t.id !== id); saveToStorage(); refreshAllUI(); }
+
+    function renderTransactionListAndDashboard() {
+        let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
+        let currentAccountBalances = {};
+        storage.accounts.forEach(a => currentAccountBalances[a.name] = a.balance);
+        
+        [...storage.transactions].reverse().forEach(t => {
+            if(t.type === 'INCOME') { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] += t.amount; }
+            else { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] -= t.amount; }
+        });
+
+        storage.transactions.forEach(t => {
+            if (t.type === 'INCOME') incomeSum += t.amount;
+            else { expenseSum += t.amount; chartData[t.primaryCate] = (chartData[t.primaryCate] || 0) + t.amount; }
+            const sign = t.type === 'INCOME' ? '＋' : '－';
+            html += `
+                <div class="item">
+                    <div>
+                        <div><span class="cate-tag">${t.primaryCate}</span><span class="sub-tag">${t.subCate}</span></div>
+                        <div class="meta">📅 ${t.date} | 👛 ${t.account} | 📝 ${t.remark}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="amt ${t.type}">${sign}¥${t.amount.toFixed(2)}</div>
+                        <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction('${t.id}')">擦除</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        let netAssetCalculated = Object.values(currentAccountBalances).reduce((a, b) => a + b, 0);
+        document.getElementById('totalIncome').innerText = `¥${incomeSum.toFixed(2)}`;
+        document.getElementById('totalExpense').innerText = `¥${expenseSum.toFixed(2)}`;
+        document.getElementById('netAsset').innerText = `¥${netAssetCalculated.toFixed(2)}`;
+        document.getElementById('historyList').innerHTML = html || '<p style="color:#9c97b8; text-align:center; padding:20px;">小本子空空如也 ⭐️</p>';
+        renderChart(chartData);
+    }
+
+    function renderChart(chartData) {
+        const ctx = document.getElementById('analyticsChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+        const labels = Object.keys(chartData);
+        if(labels.length === 0) return;
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: Object.values(chartData), backgroundColor: ['#ff9aa2', '#ffb7b2', '#ffdac1', '#e2f0cb', '#b5ead7', '#c7ceea'] }] },
+            options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#4a4563', font: { weight: 'bold' } } } } }
+        });
+    }
+
+    function exportToExcel() {
+        if(storage.transactions.length === 0) { alert('没有流水数据可以导出哦！'); return; }
+        let csvContent = "\uFEFF流水单号,记账日期,流水类型,主分类,子细分,结算账户,交易金额,备注小记\r\n";
+        storage.transactions.forEach(t => {
+            csvContent += [t.id, t.date, t.type === 'EXPENSE' ? '支出' : '收入', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), `"${t.remark.replace(/"/g, '""')}"`].join(",") + "\r\n";
+        });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url); link.setAttribute("download", `桃气紫账本_备份_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>
