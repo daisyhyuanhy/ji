@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌟 桃气紫随手记 v4 (支持导入) 🌟</title>
+    <title>🔮 桃气紫账本 (GitHub云同步版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { 
@@ -16,14 +16,7 @@
             --text: #4a4563;          
         }
         
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background: var(--bg); 
-            margin: 0; 
-            padding: 25px; 
-            color: var(--text);
-        }
-        
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 25px; color: var(--text); }
         .container { max-width: 1100px; margin: 0 auto; }
         .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         h1 { margin: 0; font-size: 26px; color: var(--primary); font-weight: 800; text-shadow: 1px 1px 0px #fff; }
@@ -42,7 +35,7 @@
         h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; }
         h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
 
-        /* 表单与组件 */
+        /* 表单 */
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #7f7999; }
         .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid var(--primary-light); background: var(--primary-light); border-radius: 10px; box-sizing: border-box; font-size: 13px; color: var(--text); outline: none; font-weight: 600; }
@@ -53,24 +46,8 @@
         .btn-primary { background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 14px; margin-top: 5px; }
         .btn-primary:hover { background: #6861a0; }
         .btn-success { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
-        .btn-success:hover { background: var(--primary); color: white; }
         
         .inline-form { display: flex; gap: 6px; margin-top: 10px; }
-
-        /* 导入区（可爱拖拽树洞） */
-        .import-zone {
-            border: 2px dashed var(--primary-soft);
-            background: var(--primary-light);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-            transition: all 0.3s;
-        }
-        .import-zone:hover { background: #fff; border-color: var(--primary); }
-        .import-zone p { margin: 0; font-size: 12px; font-weight: bold; color: var(--primary); }
-        .import-zone span { font-size: 10px; color: #9c97b8; display: block; margin-top: 4px; }
 
         /* 流水列表 */
         .list-container { max-height: 380px; overflow-y: auto; padding-right: 5px; }
@@ -86,7 +63,7 @@
         .amt.INCOME { color: #43aa8b; }
 
         /* 配置面板 */
-        .config-list { max-height: 130px; overflow-y: auto; border: 2px solid var(--primary-light); padding: 10px; border-radius: 12px; margin-bottom: 12px; font-size: 12px; background: var(--primary-light); }
+        .config-list { max-height: 110px; overflow-y: auto; border: 2px solid var(--primary-light); padding: 10px; border-radius: 12px; margin-bottom: 12px; font-size: 12px; background: var(--primary-light); }
         .config-item { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #dedae8; align-items: center; font-weight: 600; }
         .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 16px; }
         .chart-wrapper { padding: 10px; background: var(--primary-light); border-radius: 14px; margin-top: 20px; border: 1px solid #fff; }
@@ -98,6 +75,7 @@
     <div class="header-bar">
         <h1>🔮 缘の账本</h1>
         <div style="display: flex; gap: 10px;">
+            <button class="btn btn-success" id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
             <button class="btn btn-success" onclick="exportToExcel()">导出备份 🌸</button>
         </div>
     </div>
@@ -148,12 +126,6 @@
         </div>
 
         <div class="box">
-            <div class="import-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-                <p>📂 戳我或把备份表格(CSV)拖到这里导入</p>
-                <span>将自动识别并合并去重哦 (｡♥‿♥｡)</span>
-                <input type="file" id="fileInput" accept=".csv" style="display:none;" onchange="handleFileSelect(event)">
-            </div>
-
             <h2>账目流水日记本</h2>
             <div class="list-container" id="historyList"></div>
             <div class="chart-wrapper">
@@ -170,156 +142,174 @@
                 <button class="btn btn-primary" style="width:40px; padding:0;" onclick="addCustomAccount()">+</button>
             </div>
 
-            <h2 style="margin-top: 25px;">自定义花销分类</h2>
+            <h2 style="margin-top: 20px;">自定义花销分类</h2>
             <div class="form-group">
                 <select id="configType" onchange="renderConfigCateCascade()">
                     <option value="EXPENSE">修改支出项</option>
                     <option value="INCOME">修改收入项</option>
                 </select>
             </div>
-            
             <div class="config-list" id="cateConfigList"></div>
-            
             <div class="inline-form">
                 <input type="text" id="newPrimaryName" placeholder="新增主大类">
-                <button class="btn btn-primary" style="width:80px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
+                <button class="btn btn-primary" style="width:65px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
             </div>
-            
-            <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:10px; margin-top:10px;">
+            <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:6px; margin-top:6px;">
                 <select id="configPrimarySelect" style="width:40%;"></select>
-                <input type="text" id="newSubName" placeholder="新增二级子类" style="width:45%;">
-                <button class="btn btn-primary" style="width:50px; padding:0; font-size:12px;" onclick="addSubCategory()">加子类</button>
+                <input type="text" id="newSubName" placeholder="新二级子类" style="width:45%;">
+                <button class="btn btn-primary" style="width:45px; padding:0; font-size:12px;" onclick="addSubCategory()">+</button>
             </div>
+
+            <h2 style="margin-top: 20px; color: #a389d4;">☁️ 多端同步小雷达</h2>
+            <div class="form-group">
+                <label>GitHub 用户名</label>
+                <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
+            </div>
+            <div class="form-group">
+                <label>仓库名称</label>
+                <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
+            </div>
+            <div class="form-group">
+                <label>你的私人 Token</label>
+                <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
+            </div>
+            <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
         </div>
     </div>
 </div>
 
 <script>
-    let storage = {
-        accounts: JSON.parse(localStorage.getItem('v4_accounts')) || [
-            {name: '微信支付', balance: 0}, {name: '支付宝', balance: 0}, {name: '小金库现金', balance: 0}
-        ],
-        categories: JSON.parse(localStorage.getItem('v4_categories')) || {
-            EXPENSE: { '餐饮美食': ['买奶茶 🥤', '开心火锅 🍲', '元气早餐 🍞'], '休闲娱乐': ['猫咖体验 🐱', '抓娃娃 🧸'] },
-            INCOME: { '日常兼职': ['家教补贴', '手作副业'], '生活福利': ['长辈投喂', '手气红包'] }
+    let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
+        accounts: [{name: '微信支付', balance: 0}, {name: '支付宝', balance: 0}, {name: '现金', balance: 0}],
+        categories: {
+            EXPENSE: { '餐饮美食': ['买奶茶 🥤', '开心火锅 🍲'], '休闲娱乐': ['猫咖体验 🐱'] },
+            INCOME: { '日常兼职': ['副业补贴'], '生活福利': ['手气红包'] }
         },
-        transactions: JSON.parse(localStorage.getItem('v4_transactions')) || []
+        transactions: [],
+        sha: null // 云端文件标记
     };
 
     let chartInstance = null;
 
     window.onload = function() {
         document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
-        initDragAndDrop();
+        loadCloudConfig();
         refreshAllUI();
+        // 自动静默同步
+        if(getCloudConfig().token) { syncWithGitHub(true); }
     };
 
     function saveToStorage() {
-        localStorage.setItem('v4_accounts', JSON.stringify(storage.accounts));
-        localStorage.setItem('v4_categories', JSON.stringify(storage.categories));
-        localStorage.setItem('v4_transactions', JSON.stringify(storage.transactions));
+        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
     }
 
-    /* 核心导入解析逻辑 */
-    function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file) processFile(file);
+    /* 读取与保存右下角的云端配置 */
+    function loadCloudConfig() {
+        document.getElementById('ghUser').value = localStorage.getItem('gh_user') || '';
+        document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
+        document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
     }
-
-    function initDragAndDrop() {
-        const dropZone = document.getElementById('dropZone');
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = '#fff'; });
-        dropZone.addEventListener('dragleave', () => { dropZone.style.background = 'var(--primary-light)'; });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.style.background = 'var(--primary-light)';
-            const file = e.dataTransfer.files[0];
-            if (file) processFile(file);
-        });
+    function saveCloudConfig() {
+        localStorage.setItem('gh_user', document.getElementById('ghUser').value.trim());
+        localStorage.setItem('gh_repo', document.getElementById('ghRepo').value.trim());
+        localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
     }
-
-    function processFile(file) {
-        const reader = new FileReader();
-        reader.readAsText(file, "UTF-8");
-        reader.onload = function (e) {
-            const text = e.target.result;
-            parseCSVData(text);
+    function getCloudConfig() {
+        return {
+            user: localStorage.getItem('gh_user'),
+            repo: localStorage.getItem('gh_repo'),
+            token: localStorage.getItem('gh_token')
         };
     }
 
-    function parseCSVData(text) {
-        const lines = text.split(/\r?\n/);
-        if (lines.length <= 1) { alert("表格里好像没有数据呢~"); return; }
-
-        let importCount = 0;
-        let skipCount = 0;
-
-        // 获取现有的 ID 集合用于无损去重
-        const existingIds = new Set(storage.transactions.map(t => t.id));
-
-        for (let i = 1; i < lines.length; i++) {
-            if (!lines[i].trim()) continue;
-            
-            // 处理包含引号的 CSV 复杂字段
-            let row = [];
-            let insideQuote = false;
-            let entries = lines[i].split(',');
-            
-            // 简单的 CSV 备注逗号包裹处理
-            let lineData = lines[i];
-            let parts = [];
-            let current = '';
-            for(let char of lineData) {
-                if(char === '"') { insideQuote = !insideQuote; }
-                else if(char === ',' && !insideQuote) { parts.push(current); current = ''; }
-                else { current += char; }
-            }
-            parts.push(current);
-
-            if (parts.length < 7) continue;
-
-            let id = parts[0].trim();
-            // 如果导入的文件没有包含TX开头的系统ID（比如用户手写的数据），则随机赋予一个
-            if (!id.startsWith('TX')) { id = 'TX' + (Date.now() + i); }
-
-            // 重复行判定
-            if (existingIds.has(id)) { skipCount++; continue; }
-
-            const item = {
-                id: id,
-                date: parts[1].trim(),
-                type: parts[2].trim() === '收入' ? 'INCOME' : 'EXPENSE',
-                primaryCate: parts[3].trim(),
-                subCate: parts[4].trim(),
-                account: parts[5].trim(),
-                amount: parseFloat(parts[6].trim()) || 0,
-                remark: parts[7] ? parts[7].trim().replace(/^"|"$/g, '') : '无'
-            };
-
-            // 智能补全机制：如果导入了不存在的账户或分类，自动在配置里建立
-            if (!storage.accounts.some(a => a.name === item.account)) {
-                storage.accounts.push({ name: item.account, balance: 0 });
-            }
-            if (!storage.categories[item.type][item.primaryCate]) {
-                storage.categories[item.type][item.primaryCate] = [item.subCate];
-            } else if (!storage.categories[item.type][item.primaryCate].includes(item.subCate)) {
-                storage.categories[item.type][item.primaryCate].push(item.subCate);
-            }
-
-            storage.transactions.push(item);
-            importCount++;
+    /* ☁️ 核心云同步模块：利用 GitHub API 双向合并 */
+    async function syncWithGitHub(isSilent = false) {
+        const config = getCloudConfig();
+        if(!config.user || !config.repo || !config.token) {
+            if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
+            return;
         }
 
-        // 按日期重新对流水排序（新记的在前）
-        storage.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-        
-        saveToStorage();
-        refreshAllUI();
-        alert(`🎉 成功同步导入 ${importCount} 笔新流水！(跳过重复账目 ${skipCount} 笔)`);
-        document.getElementById('fileInput').value = ''; // 清空选择
+        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+        const headers = {
+            "Authorization": `token ${config.token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        };
+
+        if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
+
+        try {
+            // 1. 尝试从云端下载最新的数据
+            let response = await fetch(url, { headers });
+            let cloudData = null;
+            let cloudSha = null;
+
+            if (response.ok) {
+                let json = await response.json();
+                cloudSha = json.sha;
+                // 解密云端 Base64 文本
+                let decodedText = decodeURIComponent(escape(atob(json.content)));
+                cloudData = JSON.parse(decodedText);
+            }
+
+            // 2. 双向合并策略
+            if (cloudData) {
+                // 合并账户
+                let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
+                cloudData.accounts.forEach(a => accountMap.set(a.name, a));
+                storage.accounts = Array.from(accountMap.values());
+
+                // 合并流水（根据唯一ID去重）
+                let txMap = new Map(storage.transactions.map(t => [t.id, t]));
+                cloudData.transactions.forEach(t => {
+                    // 如果云端更新时间比本地更晚，或者本地没有，则采用云端数据
+                    if (!txMap.has(t.id) || (t.updatedAt && t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
+                        txMap.set(t.id, t);
+                    }
+                });
+                
+                // 过滤已擦除项并重排序
+                storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+                storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
+            }
+
+            storage.sha = cloudSha;
+            saveToStorage();
+            refreshAllUI();
+
+            // 3. 将合并后的最新数据回传推送到云端保存
+            let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
+            let putBody = {
+                message: "☁️ 桃气紫账本数据自动增量同步",
+                content: contentToUpload
+            };
+            if(storage.sha) putBody.sha = storage.sha; // 覆盖旧版本需要携带 sha
+
+            let putResponse = await fetch(url, {
+                method: "PUT",
+                headers: headers,
+                body: JSON.stringify(putBody)
+            });
+
+            if(putResponse.ok) {
+                let putJson = await putResponse.json();
+                storage.sha = putJson.content.sha; // 抓取最新 sha 锁
+                saveToStorage();
+                if(!isSilent) alert("✨ 恭喜！手机电脑数据已同步成功！");
+            } else {
+                if(!isSilent) alert("回传云端时遇到点小拥堵，稍后重试下呢~");
+            }
+
+        } catch (error) {
+            console.error(error);
+            if(!isSilent) alert("网络连接不畅，账目暂时保存在本地缓存中~");
+        } finally {
+            document.getElementById('syncBtn').innerText = "☁️ 手动同步";
+        }
     }
 
-    /* 延续基础渲染逻辑 */
+    /* 基础渲染与交互逻辑 */
     function refreshAllUI() {
         renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard();
     }
@@ -351,7 +341,7 @@
         const type = document.getElementById('configType').value;
         let html = ''; const data = storage.categories[type];
         for (let pri in data) {
-            html += `<div style="font-weight:bold; margin-top:6px; color:var(--primary);">✨ ${pri} <span class="del-btn" style="font-size:12px;" onclick="deletePrimaryCategory('${type}','${pri}')">[删]</span></div>`;
+            html += `<div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ ${pri} <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory('${type}','${pri}')">[删]</span></div>`;
             data[pri].forEach((sub, idx) => {
                 html += `<div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ ${sub}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${pri}', ${idx})">×</span></div>`;
             });
@@ -366,51 +356,63 @@
         const name = document.getElementById('newAccountName').value.trim();
         const initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
         if(!name) return; storage.accounts.push({name: name, balance: initBal});
-        saveToStorage(); refreshAllUI();
+        saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newAccountName').value = ''; document.getElementById('newAccountInit').value = '';
     }
 
-    function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); }
+    function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
 
     function addPrimaryCategory() {
         const type = document.getElementById('configType').value;
         const name = document.getElementById('newPrimaryName').value.trim();
         if(!name || storage.categories[type][name]) return;
-        storage.categories[type][name] = []; saveToStorage(); refreshAllUI();
+        storage.categories[type][name] = []; saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newPrimaryName').value = '';
     }
 
-    function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); }
+    function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
 
     function addSubCategory() {
         const type = document.getElementById('configType').value;
         const pri = document.getElementById('configPrimarySelect').value;
         const subName = document.getElementById('newSubName').value.trim();
         if(!pri || !subName || storage.categories[type][pri].includes(subName)) return;
-        storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI();
+        storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newSubName').value = '';
     }
 
-    function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); }
+    function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
 
     document.getElementById('ledgerForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const item = {
-            id: 'TX' + Date.now(),
+            id: 'TX' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
             type: document.getElementById('txType').value,
             amount: parseFloat(document.getElementById('txAmount').value),
             primaryCate: document.getElementById('txPrimaryCate').value,
             subCate: document.getElementById('txSubCate').value || '日常',
             account: document.getElementById('txAccount').value,
             date: document.getElementById('txDate').value,
-            remark: document.getElementById('txRemark').value || '贴心留白'
+            remark: document.getElementById('txRemark').value || '贴心留白',
+            updatedAt: Date.now(),
+            isDeleted: false
         };
         storage.transactions.unshift(item);
         saveToStorage(); refreshAllUI();
         document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
+        syncWithGitHub(true); // 记账后自动静默同步到云端
     });
 
-    function deleteTransaction(id) { storage.transactions = storage.transactions.filter(t => t.id !== id); saveToStorage(); refreshAllUI(); }
+    function deleteTransaction(id) {
+        // 标记为逻辑删除，方便同步删除状态
+        let tx = storage.transactions.find(t => t.id === id);
+        if(tx) {
+            tx.isDeleted = true;
+            tx.updatedAt = Date.now();
+        }
+        storage.transactions = storage.transactions.filter(t => t.id !== id);
+        saveToStorage(); refreshAllUI(); syncWithGitHub(true);
+    }
 
     function renderTransactionListAndDashboard() {
         let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
