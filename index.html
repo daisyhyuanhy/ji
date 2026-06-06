@@ -32,7 +32,7 @@
         @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
         
         .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); height: fit-content; border: 2px solid #fff; }
-        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; }
+        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
         h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
 
         /* 表单 */
@@ -67,6 +67,9 @@
         .config-item { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #dedae8; align-items: center; font-weight: 600; }
         .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 16px; }
         .chart-wrapper { padding: 10px; background: var(--primary-light); border-radius: 14px; margin-top: 20px; border: 1px solid #fff; }
+        
+        /* 折叠区 */
+        .collapsible-content { display: none; }
     </style>
 </head>
 <body>
@@ -160,20 +163,22 @@
                 <button class="btn btn-primary" style="width:45px; padding:0; font-size:12px;" onclick="addSubCategory()">+</button>
             </div>
 
-            <h2 style="margin-top: 20px; color: #a389d4;">☁️ 多端同步小雷达</h2>
-            <div class="form-group">
-                <label>GitHub 用户名</label>
-                <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
+            <h2 style="margin-top: 20px; color: #a389d4;" onclick="toggleSyncPanel()">☁️ 多端同步小雷达 <span>[展开/收起]</span></h2>
+            <div id="syncPanel" class="collapsible-content">
+                <div class="form-group">
+                    <label>GitHub 用户名</label>
+                    <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
+                </div>
+                <div class="form-group">
+                    <label>仓库名称</label>
+                    <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
+                </div>
+                <div class="form-group">
+                    <label>你的私人 Token</label>
+                    <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
+                </div>
+                <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
             </div>
-            <div class="form-group">
-                <label>仓库名称</label>
-                <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
-            </div>
-            <div class="form-group">
-                <label>你的私人 Token</label>
-                <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
-            </div>
-            <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
         </div>
     </div>
 </div>
@@ -186,7 +191,7 @@
             INCOME: { '日常兼职': ['副业补贴'], '生活福利': ['手气红包'] }
         },
         transactions: [],
-        sha: null // 云端文件标记
+        sha: null
     };
 
     let chartInstance = null;
@@ -195,15 +200,16 @@
         document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
         loadCloudConfig();
         refreshAllUI();
-        // 自动静默同步
         if(getCloudConfig().token) { syncWithGitHub(true); }
     };
 
-    function saveToStorage() {
-        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
+    function toggleSyncPanel() {
+        const panel = document.getElementById('syncPanel');
+        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
     }
 
-    /* 读取与保存右下角的云端配置 */
+    function saveToStorage() { localStorage.setItem('gh_ledger_data', JSON.stringify(storage)); }
+
     function loadCloudConfig() {
         document.getElementById('ghUser').value = localStorage.getItem('gh_user') || '';
         document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
@@ -215,14 +221,9 @@
         localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
     }
     function getCloudConfig() {
-        return {
-            user: localStorage.getItem('gh_user'),
-            repo: localStorage.getItem('gh_repo'),
-            token: localStorage.getItem('gh_token')
-        };
+        return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') };
     }
 
-    /* ☁️ 核心云同步模块：利用 GitHub API 双向合并 */
     async function syncWithGitHub(isSilent = false) {
         const config = getCloudConfig();
         if(!config.user || !config.repo || !config.token) {
@@ -240,7 +241,6 @@
         if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
 
         try {
-            // 1. 尝试从云端下载最新的数据
             let response = await fetch(url, { headers });
             let cloudData = null;
             let cloudSha = null;
@@ -248,28 +248,21 @@
             if (response.ok) {
                 let json = await response.json();
                 cloudSha = json.sha;
-                // 解密云端 Base64 文本
                 let decodedText = decodeURIComponent(escape(atob(json.content)));
                 cloudData = JSON.parse(decodedText);
             }
 
-            // 2. 双向合并策略
             if (cloudData) {
-                // 合并账户
                 let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
                 cloudData.accounts.forEach(a => accountMap.set(a.name, a));
                 storage.accounts = Array.from(accountMap.values());
 
-                // 合并流水（根据唯一ID去重）
                 let txMap = new Map(storage.transactions.map(t => [t.id, t]));
                 cloudData.transactions.forEach(t => {
-                    // 如果云端更新时间比本地更晚，或者本地没有，则采用云端数据
                     if (!txMap.has(t.id) || (t.updatedAt && t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
                         txMap.set(t.id, t);
                     }
                 });
-                
-                // 过滤已擦除项并重排序
                 storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
                 storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
             }
@@ -278,13 +271,12 @@
             saveToStorage();
             refreshAllUI();
 
-            // 3. 将合并后的最新数据回传推送到云端保存
             let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
             let putBody = {
                 message: "☁️ 桃气紫账本数据自动增量同步",
                 content: contentToUpload
             };
-            if(storage.sha) putBody.sha = storage.sha; // 覆盖旧版本需要携带 sha
+            if(storage.sha) putBody.sha = storage.sha;
 
             let putResponse = await fetch(url, {
                 method: "PUT",
@@ -294,7 +286,7 @@
 
             if(putResponse.ok) {
                 let putJson = await putResponse.json();
-                storage.sha = putJson.content.sha; // 抓取最新 sha 锁
+                storage.sha = putJson.content.sha;
                 saveToStorage();
                 if(!isSilent) alert("✨ 恭喜！手机电脑数据已同步成功！");
             } else {
@@ -309,22 +301,14 @@
         }
     }
 
-    /* 基础渲染与交互逻辑 */
-    function refreshAllUI() {
-        renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard();
-    }
-
-    function renderAccountSelectors() {
-        document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
-    }
-
+    function refreshAllUI() { renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard(); }
+    function renderAccountSelectors() { document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join(''); }
     function renderCategoryCascade() {
         const type = document.getElementById('txType').value;
         const primaries = Object.keys(storage.categories[type]);
         document.getElementById('txPrimaryCate').innerHTML = primaries.map(p => `<option value="${p}">${p}</option>`).join('');
         renderSubCategoryCascade();
     }
-
     function renderSubCategoryCascade() {
         const type = document.getElementById('txType').value;
         const priValue = document.getElementById('txPrimaryCate').value;
@@ -332,7 +316,6 @@
         const subs = storage.categories[type][priValue] || [];
         document.getElementById('txSubCate').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
     }
-
     function renderConfigLists() {
         document.getElementById('accountConfigList').innerHTML = storage.accounts.map((a, i) => `
             <div class="config-item"><span>💰 ${a.name} (￥${a.balance})</span><span class="del-btn" onclick="deleteAccount(${i})">×</span></div>
@@ -349,9 +332,7 @@
         document.getElementById('cateConfigList').innerHTML = html;
         document.getElementById('configPrimarySelect').innerHTML = Object.keys(data).map(p => `<option value="${p}">${p}</option>`).join('');
     }
-
     function renderConfigCateCascade() { renderConfigLists(); }
-
     function addCustomAccount() {
         const name = document.getElementById('newAccountName').value.trim();
         const initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
@@ -359,9 +340,7 @@
         saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newAccountName').value = ''; document.getElementById('newAccountInit').value = '';
     }
-
     function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-
     function addPrimaryCategory() {
         const type = document.getElementById('configType').value;
         const name = document.getElementById('newPrimaryName').value.trim();
@@ -369,9 +348,7 @@
         storage.categories[type][name] = []; saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newPrimaryName').value = '';
     }
-
     function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-
     function addSubCategory() {
         const type = document.getElementById('configType').value;
         const pri = document.getElementById('configPrimarySelect').value;
@@ -380,9 +357,7 @@
         storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newSubName').value = '';
     }
-
     function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-
     document.getElementById('ledgerForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const item = {
@@ -400,30 +375,22 @@
         storage.transactions.unshift(item);
         saveToStorage(); refreshAllUI();
         document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
-        syncWithGitHub(true); // 记账后自动静默同步到云端
+        syncWithGitHub(true);
     });
-
     function deleteTransaction(id) {
-        // 标记为逻辑删除，方便同步删除状态
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) {
-            tx.isDeleted = true;
-            tx.updatedAt = Date.now();
-        }
+        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
         saveToStorage(); refreshAllUI(); syncWithGitHub(true);
     }
-
     function renderTransactionListAndDashboard() {
         let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
         let currentAccountBalances = {};
         storage.accounts.forEach(a => currentAccountBalances[a.name] = a.balance);
-        
         [...storage.transactions].reverse().forEach(t => {
             if(t.type === 'INCOME') { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] += t.amount; }
             else { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] -= t.amount; }
         });
-
         storage.transactions.forEach(t => {
             if (t.type === 'INCOME') incomeSum += t.amount;
             else { expenseSum += t.amount; chartData[t.primaryCate] = (chartData[t.primaryCate] || 0) + t.amount; }
@@ -441,7 +408,6 @@
                 </div>
             `;
         });
-
         let netAssetCalculated = Object.values(currentAccountBalances).reduce((a, b) => a + b, 0);
         document.getElementById('totalIncome').innerText = `¥${incomeSum.toFixed(2)}`;
         document.getElementById('totalExpense').innerText = `¥${expenseSum.toFixed(2)}`;
@@ -449,7 +415,6 @@
         document.getElementById('historyList').innerHTML = html || '<p style="color:#9c97b8; text-align:center; padding:20px;">小本子空空如也 ⭐️</p>';
         renderChart(chartData);
     }
-
     function renderChart(chartData) {
         const ctx = document.getElementById('analyticsChart').getContext('2d');
         if (chartInstance) chartInstance.destroy();
@@ -461,7 +426,6 @@
             options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#4a4563', font: { weight: 'bold' } } } } }
         });
     }
-
     function exportToExcel() {
         if(storage.transactions.length === 0) { alert('没有流水数据可以导出哦！'); return; }
         let csvContent = "\uFEFF流水单号,记账日期,流水类型,主分类,子细分,结算账户,交易金额,备注小记\r\n";
