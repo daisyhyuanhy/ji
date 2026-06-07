@@ -2,7 +2,7 @@
   "accounts": [
     {
       "name": "微信支付",
-      "balance": 0
+      "balance": -1234
     },
     {
       "name": "支付宝",
@@ -35,7 +35,19 @@
       ]
     }
   },
-  "transactions": [],
-  "lastSyncTime": "2026-06-07T15:29:49.336Z",
+  "transactions": [
+    {
+      "id": "tx_1780847021478_w8upkn",
+      "type": "EXPENSE",
+      "amount": 1234,
+      "primaryCate": "🍜 餐饮美食",
+      "subCate": "奶茶甜点",
+      "account": "微信支付",
+      "date": "2026-06-07",
+      "remark": "✨ 桃气笔记",
+      "createdAt": 1780847021478
+    }
+  ],
+  "lastSyncTime": "2026-06-07T15:43:45.785Z",
   "version": 3
 }
