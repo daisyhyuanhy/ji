@@ -2,24 +2,71 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔮 桃气紫账本 (GitHub云同步版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #7a73b0; --primary-light: #f3f2fa; --bg: #e8e7f5; --text: #4a4563; }
-        body { font-family: sans-serif; background: var(--bg); padding: 20px; color: var(--text); }
-        .box { background: #fff; padding: 20px; border-radius: 16px; margin-bottom: 20px; }
-        .list-container { max-height: 400px; overflow-y: auto; }
-        .item { display: flex; justify-content: space-between; padding: 10px; background: #f3f2fa; margin-bottom: 5px; border-radius: 8px; }
+        :root { --primary: #7a73b0; --primary-light: #f3f2fa; --primary-soft: #d3cfe5; --expense: #ff9aa2; --income: #b5ead7; --bg: #e8e7f5; --text: #4a4563; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 25px; color: var(--text); }
+        .container { max-width: 1100px; margin: 0 auto; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        h1 { margin: 0; font-size: 26px; color: var(--primary); font-weight: 800; }
+        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 25px; }
+        .card { background: #ffffff; padding: 20px 15px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); text-align: center; border: 2px solid #fff; }
+        .card p { margin: 0; font-size: 24px; font-weight: 800; }
+        .grid-layout { display: grid; grid-template-columns: 330px 1fr 330px; gap: 25px; }
+        @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
+        .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); border: 2px solid #fff; }
+        h2 { margin-top: 0; font-size: 16px; color: var(--primary); cursor: pointer; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #7f7999; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid var(--primary-light); background: var(--primary-light); border-radius: 10px; box-sizing: border-box; }
+        .btn { border: none; padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; padding: 12px; }
+        .list-container { max-height: 380px; overflow-y: auto; }
+        .item { display: flex; justify-content: space-between; padding: 12px; background: var(--primary-light); border-radius: 12px; margin-bottom: 10px; }
+        .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; }
+        .collapsible-content { display: none; }
     </style>
 </head>
 <body>
-    <div id="app">
-        <button id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
-        <div id="historyList"></div>
+<div class="container">
+    <div class="header-bar">
+        <h1>🔮 缘の账本</h1>
+        <button class="btn btn-success" id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
     </div>
+    <div class="dashboard">
+        <div class="card"><h3>净资产</h3><p id="netAsset">¥0.00</p></div>
+        <div class="card"><h3>收入</h3><p id="totalIncome">¥0.00</p></div>
+        <div class="card"><h3>支出</h3><p id="totalExpense">¥0.00</p></div>
+    </div>
+    <div class="grid-layout">
+        <div class="box">
+            <h2>记一笔小账</h2>
+            <form id="ledgerForm">
+                <div class="form-group"><label>方向</label><select id="txType" onchange="renderCategoryCascade()"><option value="EXPENSE">支出</option><option value="INCOME">收入</option></select></div>
+                <div class="form-group"><label>金额</label><input type="number" id="txAmount" step="0.01" required></div>
+                <div class="form-group"><label>大类</label><select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select></div>
+                <div class="form-group"><label>账户</label><select id="txAccount"></select></div>
+                <button type="submit" class="btn btn-primary">打包保存</button>
+            </form>
+        </div>
+        <div class="box">
+            <h2>账目流水</h2>
+            <div class="list-container" id="historyList"></div>
+        </div>
+        <div class="box">
+            <h2 onclick="toggleSyncPanel()">☁️ 同步设置 [展开/收起]</h2>
+            <div id="syncPanel" class="collapsible-content">
+                <input type="text" id="ghUser" placeholder="用户名" onchange="saveCloudConfig()">
+                <input type="text" id="ghRepo" placeholder="仓库名" onchange="saveCloudConfig()">
+                <input type="password" id="ghToken" placeholder="Token" onchange="saveCloudConfig()">
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-    // --- 基础状态 ---
     let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
         accounts: [{name: '微信', balance: 0}, {name: '支付宝', balance: 0}],
         categories: { EXPENSE: { '饮食': ['奶茶'] }, INCOME: { '工资': ['奖金'] } },
@@ -27,79 +74,64 @@
         sha: null
     };
 
-    // --- 核心同步逻辑 (经过验证的稳健版本) ---
-    async function syncWithGitHub(isSilent = false) {
-        const config = { 
-            user: localStorage.getItem('gh_user'), 
-            repo: localStorage.getItem('gh_repo'), 
-            token: localStorage.getItem('gh_token') 
-        };
-        if(!config.user || !config.repo || !config.token) return alert("请先在同步面板填写配置信息！");
+    function saveToStorage() { localStorage.setItem('gh_ledger_data', JSON.stringify(storage)); }
+    function getCloudConfig() { return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') }; }
+    function saveCloudConfig() { localStorage.setItem('gh_user', document.getElementById('ghUser').value); localStorage.setItem('gh_repo', document.getElementById('ghRepo').value); localStorage.setItem('gh_token', document.getElementById('ghToken').value); }
 
+    async function syncWithGitHub(isSilent = false) {
+        const config = getCloudConfig();
+        if(!config.user || !config.repo || !config.token) return;
         const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
         const headers = { "Authorization": `token ${config.token}`, "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" };
 
         try {
-            // 1. 获取云端信息
             let res = await fetch(url, { headers });
-            let cloudSha = null;
-            let cloudData = null;
-
+            let cloudData = null, cloudSha = null;
             if (res.ok) {
                 let json = await res.json();
                 cloudSha = json.sha;
                 cloudData = JSON.parse(decodeURIComponent(escape(atob(json.content))));
             }
 
-            // 2. 合并：以本地数据为主，只处理云端新增或更新
             if (cloudData) {
                 let txMap = new Map(storage.transactions.map(t => [t.id, t]));
-                (cloudData.transactions || []).forEach(t => {
-                    if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) {
-                        txMap.set(t.id, t);
-                    }
-                });
+                (cloudData.transactions || []).forEach(t => { if(!txMap.has(t.id) || t.updatedAt > (txMap.get(t.id)?.updatedAt || 0)) txMap.set(t.id, t); });
                 storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
             }
 
-            // 3. 上传覆盖
             storage.sha = cloudSha;
-            let putBody = {
-                message: "Sync Ledger",
-                content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))),
-                sha: storage.sha
-            };
-
+            let putBody = { message: "Sync", content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))), sha: storage.sha };
             let putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
             if(putRes.ok) {
                 storage.sha = (await putRes.json()).content.sha;
-                localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
-                if(!isSilent) alert("✨ 同步成功！");
+                saveToStorage();
                 refreshAllUI();
             }
-        } catch(e) { console.error(e); alert("同步出错，请查看控制台报错"); }
+        } catch(e) { console.error(e); }
     }
 
-    // --- 确保删除操作同步且不闪回 ---
     async function deleteTransaction(id) {
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) tx.isDeleted = true;
+        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
-        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
-        
-        // 界面先刷新
+        saveToStorage();
         refreshAllUI();
-        // 同步到云端
-        await syncWithGitHub(true);
+        await syncWithGitHub(true); // 关键：等同步完成才算结束
     }
 
-    // --- 辅助函数 ---
-    function refreshAllUI() {
-        // 这里放入你原本代码中所有的 render 函数调用
-        renderTransactionListAndDashboard(); 
+    function refreshAllUI() { 
+        // 渲染逻辑保持你原来的即可
+        console.log("UI 刷新中..."); 
     }
     
-    // ... 补充你之前文件中所有的 renderTransactionListAndDashboard, renderAccountSelectors 等函数 ...
+    document.getElementById('ledgerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        // ... (添加你的添加账单逻辑)
+        syncWithGitHub(true);
+    });
+
+    window.onload = () => { if(getCloudConfig().token) syncWithGitHub(true); };
+    function toggleSyncPanel() { const p = document.getElementById('syncPanel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
 </script>
 </body>
 </html>
