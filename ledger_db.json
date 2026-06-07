@@ -32,6 +32,19 @@
       ]
     }
   },
-  "transactions": [],
-  "sha": "c8a2f1e2913305c3a244495adf34c1b545a363eb"
+  "transactions": [
+    {
+      "id": "TX1780833462568_y6os",
+      "type": "EXPENSE",
+      "amount": 1,
+      "primaryCate": "餐饮美食",
+      "subCate": "买奶茶 🥤",
+      "account": "微信支付",
+      "date": "2026-06-07",
+      "remark": "贴心留白",
+      "updatedAt": 1780833462568,
+      "isDeleted": false
+    }
+  ],
+  "sha": "edca13221985f07dfd024586f05936e2009784f4"
 }
