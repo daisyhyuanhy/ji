@@ -432,12 +432,21 @@
         document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
         syncWithGitHub(true);
     });
-    function deleteTransaction(id) {
-        let tx = storage.transactions.find(t => t.id === id);
-        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
-        storage.transactions = storage.transactions.filter(t => t.id !== id);
-        saveToStorage(); refreshAllUI(); syncWithGitHub(true);
+async function deleteTransaction(id) {
+    let tx = storage.transactions.find(t => t.id === id);
+    if(tx) {
+        tx.isDeleted = true;
+        tx.updatedAt = Date.now();
     }
+    // 立即从本地数组移除，确保界面立刻消失
+    storage.transactions = storage.transactions.filter(t => t.id !== id);
+    
+    saveToStorage();
+    refreshAllUI();
+    
+    // 强制等待同步完成，防止旧版本覆盖
+    await syncWithGitHub(true);
+}
     function renderTransactionListAndDashboard() {
         let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
         let currentAccountBalances = {};
