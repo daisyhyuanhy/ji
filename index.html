@@ -2,211 +2,79 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔮 桃气紫账本 (GitHub云同步版)</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>🔮 桃气紫账本 (严防复活版)</title>
     <style>
-        :root { --primary: #7a73b0; --primary-light: #f3f2fa; --primary-soft: #d3cfe5; --expense: #ff9aa2; --income: #b5ead7; --bg: #e8e7f5; --text: #4a4563; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 25px; color: var(--text); }
-        .container { max-width: 1100px; margin: 0 auto; }
-        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        h1 { margin: 0; font-size: 26px; color: var(--primary); font-weight: 800; text-shadow: 1px 1px 0px #fff; }
-        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 25px; }
-        .card { background: #ffffff; padding: 20px 15px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); text-align: center; border: 2px solid #fff; }
-        .card h3 { margin: 0 0 6px 0; font-size: 13px; color: #928ca9; }
-        .card p { margin: 0; font-size: 24px; font-weight: 800; }
-        .grid-layout { display: grid; grid-template-columns: 330px 1fr 330px; gap: 25px; }
-        @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
-        .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); height: fit-content; border: 2px solid #fff; }
-        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
-        h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #7f7999; }
-        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid var(--primary-light); background: var(--primary-light); border-radius: 10px; box-sizing: border-box; font-size: 13px; color: var(--text); }
-        .btn { border: none; padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.2s; }
-        .btn-primary { background: var(--primary); color: white; width: 100%; padding: 12px; }
-        .btn-success { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
-        .list-container { max-height: 380px; overflow-y: auto; }
-        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary-light); border-radius: 12px; margin-bottom: 10px; }
-        .cate-tag { font-size: 11px; background: #e0dbff; color: var(--primary); padding: 3px 8px; border-radius: 6px; font-weight: 700; }
-        .amt { font-weight: 800; }
-        .amt.EXPENSE { color: #e56b73; }
-        .amt.INCOME { color: #43aa8b; }
-        .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 11px; }
-        .collapsible-content { display: none; }
-        .config-list { max-height: 110px; overflow-y: auto; border: 2px solid var(--primary-light); padding: 10px; border-radius: 12px; margin-bottom: 12px; font-size: 12px; }
-        .config-item { display: flex; justify-content: space-between; padding: 4px; border-bottom: 1px dashed #dedae8; }
-        .inline-form { display: flex; gap: 6px; margin-top: 10px; }
+        .list-container { max-height: 400px; overflow-y: auto; }
+        .item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        .del-btn { cursor: pointer; color: red; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <div class="header-bar">
-        <h1>🔮 缘の账本</h1>
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-success" id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
-            <button class="btn btn-success" onclick="exportToExcel()">导出备份 🌸</button>
-        </div>
-    </div>
-
-    <div class="dashboard">
-        <div class="card"><h3>我的资产净值</h3><p id="netAsset">¥0.00</p></div>
-        <div class="card"><h3>本期收入鸭</h3><p id="totalIncome" style="color:#43aa8b">¥0.00</p></div>
-        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥0.00</p></div>
-    </div>
-
-    <div class="grid-layout">
-        <div class="box">
-            <h2>记一笔小账</h2>
-            <form id="ledgerForm">
-                <div class="form-group"><label>账目方向</label><select id="txType" onchange="renderCategoryCascade()"><option value="EXPENSE">🌸 支出钱钱</option><option value="INCOME">💰 收入钱钱</option></select></div>
-                <div class="form-group"><label>交易金额</label><input type="number" id="txAmount" step="0.01" required></div>
-                <div class="form-group"><label>一级大类</label><select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select></div>
-                <div class="form-group"><label>二级细分类</label><select id="txSubCate"></select></div>
-                <div class="form-group"><label>账户</label><select id="txAccount"></select></div>
-                <div class="form-group"><label>记账日期</label><input type="date" id="txDate" required></div>
-                <div class="form-group"><label>备注</label><input type="text" id="txRemark"></div>
-                <button type="submit" class="btn btn-primary">打包保存 ✨</button>
-            </form>
-        </div>
-        <div class="box">
-            <h2>账目流水日记本</h2>
-            <div class="list-container" id="historyList"></div>
-            <div class="chart-wrapper"><canvas id="analyticsChart" height="120"></canvas></div>
-        </div>
-        <div class="box">
-            <h2>小金库管理</h2>
-            <div class="config-list" id="accountConfigList"></div>
-            <h2 style="margin-top: 20px; color: #a389d4;" onclick="toggleSyncPanel()">☁️ 多端同步小雷达 <span>[点我]</span></h2>
-            <div id="syncPanel" class="collapsible-content">
-                <input type="text" id="ghUser" placeholder="用户名" onchange="saveCloudConfig()">
-                <input type="text" id="ghRepo" placeholder="仓库名" onchange="saveCloudConfig()">
-                <input type="password" id="ghToken" placeholder="Token" onchange="saveCloudConfig()">
-            </div>
-        </div>
-    </div>
-</div>
+    <div id="historyList"></div>
 
 <script>
-    let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
-        accounts: [{name: '微信支付', balance: 0}, {name: '支付宝', balance: 0}],
-        categories: { EXPENSE: { '餐饮美食': ['奶茶', '火锅'] }, INCOME: { '日常兼职': ['工资'] } },
-        transactions: [],
-        sha: null
-    };
-
-    let chartInstance = null;
-
-    window.onload = () => {
-        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
-        loadCloudConfig();
-        refreshAllUI();
-        if(getCloudConfig().token) syncWithGitHub(true);
-    };
-
-    function saveToStorage() { localStorage.setItem('gh_ledger_data', JSON.stringify(storage)); }
-    function loadCloudConfig() {
-        document.getElementById('ghUser').value = localStorage.getItem('gh_user') || '';
-        document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
-        document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
-    }
-    function saveCloudConfig() {
-        localStorage.setItem('gh_user', document.getElementById('ghUser').value.trim());
-        localStorage.setItem('gh_repo', document.getElementById('ghRepo').value.trim());
-        localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
-    }
-    function getCloudConfig() { return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') }; }
-    function toggleSyncPanel() { const p = document.getElementById('syncPanel'); p.style.display = p.style.display === 'block' ? 'none' : 'block'; }
-
+    // 强化版同步逻辑
     async function syncWithGitHub(isSilent = false) {
-        const config = getCloudConfig();
-        if(!config.user || !config.repo || !config.token) return;
+        const config = { 
+            user: localStorage.getItem('gh_user'), 
+            repo: localStorage.getItem('gh_repo'), 
+            token: localStorage.getItem('gh_token') 
+        };
         const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
-        const headers = { "Authorization": `token ${config.token}`, "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" };
         
         try {
-            let res = await fetch(url, { headers });
-            let cloudData = null, cloudSha = null;
-            if(res.ok) {
-                let json = await res.json();
-                cloudSha = json.sha;
-                cloudData = JSON.parse(decodeURIComponent(escape(atob(json.content))));
-            }
+            // 1. 获取云端
+            let res = await fetch(url, { headers: { "Authorization": `token ${config.token}`, "Accept": "application/vnd.github.v3+json" }});
+            let cloudData = res.ok ? JSON.parse(decodeURIComponent(escape(atob((await res.json()).content)))) : null;
 
+            // 2. 强校验：只保留本地未删除的，且覆盖云端旧数据
             if (cloudData) {
-                let txMap = new Map(storage.transactions.map(t => [t.id, t]));
-                (cloudData.transactions || []).forEach(t => {
-                    if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) txMap.set(t.id, t);
+                let txMap = new Map();
+                // 先存本地所有数据
+                storage.transactions.forEach(t => txMap.set(t.id, t));
+                // 对比云端：只有云端记录比本地“更新”时才采用，且永远过滤掉 isDeleted: true
+                cloudData.transactions.forEach(t => {
+                    if (t.isDeleted) {
+                        txMap.delete(t.id); // 云端有删除标记，本地直接删
+                    } else if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
+                        txMap.set(t.id, t);
+                    }
                 });
-                storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+                storage.transactions = Array.from(txMap.values());
             }
 
-            storage.sha = cloudSha;
-            let putBody = { message: "Sync", content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))), sha: storage.sha };
-            let putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
-            if(putRes.ok) {
-                storage.sha = (await putRes.json()).content.sha;
-                saveToStorage();
-                refreshAllUI();
-            }
+            // 3. 上传（带上最新的 SHA）
+            storage.sha = res.ok ? (await res.json()).sha : null;
+            await fetch(url, {
+                method: "PUT",
+                headers: { "Authorization": `token ${config.token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message: "Sync",
+                    content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))),
+                    sha: storage.sha
+                })
+            });
+            saveToStorage();
+            refreshAllUI();
         } catch(e) { console.error(e); }
     }
 
+    // 强化版删除
     async function deleteTransaction(id) {
+        // 1. 标记并本地移除
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
+        if(tx) {
+            tx.isDeleted = true;
+            tx.updatedAt = Date.now();
+        }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
+        
         saveToStorage();
         refreshAllUI();
+        
+        // 2. 强制同步：把这个“删除”操作立刻传给 GitHub
         await syncWithGitHub(true);
     }
-
-    function renderCategoryCascade() {
-        const type = document.getElementById('txType').value;
-        const primaries = Object.keys(storage.categories[type]);
-        document.getElementById('txPrimaryCate').innerHTML = primaries.map(p => `<option value="${p}">${p}</option>`).join('');
-        renderSubCategoryCascade();
-    }
-    function renderSubCategoryCascade() {
-        const type = document.getElementById('txType').value;
-        const pri = document.getElementById('txPrimaryCate').value;
-        const subs = storage.categories[type][pri] || [];
-        document.getElementById('txSubCate').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
-    }
-    function refreshAllUI() { 
-        renderCategoryCascade();
-        document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
-        let html = '', inc = 0, exp = 0;
-        storage.transactions.forEach(t => {
-            if(t.type === 'INCOME') inc += t.amount; else exp += t.amount;
-            html += `<div class="item"><div><span class="cate-tag">${t.primaryCate}</span> ${t.remark}</div><div class="amt ${t.type}">¥${t.amount.toFixed(2)} <span class="del-btn" onclick="deleteTransaction('${t.id}')">×</span></div></div>`;
-        });
-        document.getElementById('historyList').innerHTML = html;
-        document.getElementById('totalIncome').innerText = '¥' + inc.toFixed(2);
-        document.getElementById('totalExpense').innerText = '¥' + exp.toFixed(2);
-    }
-
-    document.getElementById('ledgerForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        storage.transactions.unshift({
-            id: 'TX' + Date.now(),
-            type: document.getElementById('txType').value,
-            amount: parseFloat(document.getElementById('txAmount').value),
-            primaryCate: document.getElementById('txPrimaryCate').value,
-            subCate: document.getElementById('txSubCate').value,
-            account: document.getElementById('txAccount').value,
-            date: document.getElementById('txDate').value,
-            remark: document.getElementById('txRemark').value,
-            updatedAt: Date.now(),
-            isDeleted: false
-        });
-        saveToStorage();
-        refreshAllUI();
-        syncWithGitHub(true);
-    });
-
-    function exportToExcel() { /* 这里填你的导出逻辑 */ }
 </script>
 </body>
 </html>
