@@ -1,0 +1,51 @@
+{
+  "accounts": [
+    {
+      "name": "微信支付",
+      "balance": 0
+    },
+    {
+      "name": "支付宝",
+      "balance": 0
+    },
+    {
+      "name": "现金",
+      "balance": 0
+    }
+  ],
+  "categories": {
+    "EXPENSE": {
+      "餐饮美食": [
+        "买奶茶 🥤",
+        "开心火锅 🍲"
+      ],
+      "休闲娱乐": [
+        "猫咖体验 🐱"
+      ]
+    },
+    "INCOME": {
+      "日常兼职": [
+        "副业补贴"
+      ],
+      "生活福利": [
+        "手气红包"
+      ]
+    }
+  },
+  "transactions": [
+    {
+      "id": "TX1780820725984_kse7",
+      "type": "EXPENSE",
+      "amount": 7,
+      "primaryCate": "餐饮美食",
+      "subCate": "买奶茶 🥤",
+      "account": "微信支付",
+      "date": "2026-06-07",
+      "remark": "贴心留白",
+      "updatedAt": 1780820725984,
+      "isDeleted": false
+    },
+    {}
+  ],
+  "sha": null
+}
