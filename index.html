@@ -2,79 +2,143 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>🔮 桃气紫账本 (严防复活版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 桃气紫账本 (最终修复版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .list-container { max-height: 400px; overflow-y: auto; }
-        .item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
-        .del-btn { cursor: pointer; color: red; }
+        :root { --primary: #7a73b0; --primary-light: #f3f2fa; --primary-soft: #d3cfe5; --expense: #ff9aa2; --income: #b5ead7; --bg: #e8e7f5; --text: #4a4563; }
+        body { font-family: sans-serif; background: var(--bg); padding: 25px; color: var(--text); }
+        .container { max-width: 900px; margin: 0 auto; }
+        .box { background: white; padding: 20px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary-light); border-radius: 8px; margin-bottom: 8px; }
+        .del-btn { cursor: pointer; color: #ff9aa2; font-weight: bold; padding: 5px; }
+        .btn { padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer; background: var(--primary); color: white; }
     </style>
 </head>
 <body>
-    <div id="historyList"></div>
+
+<div class="container">
+    <div class="box">
+        <h1>🔮 桃气紫账本</h1>
+        <button class="btn" onclick="syncWithGitHub()">☁️ 手动同步</button>
+    </div>
+    
+    <div class="box">
+        <form id="ledgerForm">
+            <input type="number" id="txAmount" placeholder="金额" required>
+            <input type="text" id="txRemark" placeholder="备注">
+            <button type="submit" class="btn">记一笔</button>
+        </form>
+    </div>
+
+    <div class="box" id="historyList"></div>
+</div>
 
 <script>
-    // 强化版同步逻辑
+    // 1. 初始化
+    let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
+        transactions: [],
+        sha: null
+    };
+
+    // 2. 修复版同步函数 (包含权限校验和空值保护)
     async function syncWithGitHub(isSilent = false) {
         const config = { 
             user: localStorage.getItem('gh_user'), 
             repo: localStorage.getItem('gh_repo'), 
             token: localStorage.getItem('gh_token') 
         };
-        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
         
-        try {
-            // 1. 获取云端
-            let res = await fetch(url, { headers: { "Authorization": `token ${config.token}`, "Accept": "application/vnd.github.v3+json" }});
-            let cloudData = res.ok ? JSON.parse(decodeURIComponent(escape(atob((await res.json()).content)))) : null;
+        if (!config.user || !config.repo || !config.token) {
+            alert("请先设置GitHub信息");
+            return;
+        }
 
-            // 2. 强校验：只保留本地未删除的，且覆盖云端旧数据
-            if (cloudData) {
-                let txMap = new Map();
-                // 先存本地所有数据
-                storage.transactions.forEach(t => txMap.set(t.id, t));
-                // 对比云端：只有云端记录比本地“更新”时才采用，且永远过滤掉 isDeleted: true
-                cloudData.transactions.forEach(t => {
-                    if (t.isDeleted) {
-                        txMap.delete(t.id); // 云端有删除标记，本地直接删
-                    } else if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
-                        txMap.set(t.id, t);
-                    }
-                });
-                storage.transactions = Array.from(txMap.values());
+        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+        const headers = { 
+            "Authorization": `token ${config.token}`, 
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        };
+
+        try {
+            let res = await fetch(url, { headers });
+            let cloudData = { transactions: [] };
+            let sha = null;
+
+            if (res.ok) {
+                let json = await res.json();
+                sha = json.sha;
+                cloudData = JSON.parse(decodeURIComponent(escape(atob(json.content))));
             }
 
-            // 3. 上传（带上最新的 SHA）
-            storage.sha = res.ok ? (await res.json()).sha : null;
-            await fetch(url, {
-                method: "PUT",
-                headers: { "Authorization": `token ${config.token}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: "Sync",
-                    content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))),
-                    sha: storage.sha
-                })
+            // 合并逻辑
+            let txMap = new Map();
+            storage.transactions.forEach(t => txMap.set(t.id, t));
+            (cloudData.transactions || []).forEach(t => {
+                if (t.isDeleted) txMap.delete(t.id);
+                else if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) txMap.set(t.id, t);
             });
-            saveToStorage();
-            refreshAllUI();
+
+            storage.transactions = Array.from(txMap.values());
+            
+            // 上传
+            let putBody = {
+                message: "Update Ledger",
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))),
+                sha: sha
+            };
+            if (!sha) delete putBody.sha;
+
+            let putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
+            if (putRes.ok) {
+                storage.sha = (await putRes.json()).content.sha;
+                localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
+                refreshAllUI();
+                if(!isSilent) alert("同步成功！");
+            } else {
+                let err = await putRes.json();
+                alert("同步失败 (检查Token权限): " + err.message);
+            }
         } catch(e) { console.error(e); }
     }
 
-    // 强化版删除
+    // 3. 删除逻辑
     async function deleteTransaction(id) {
-        // 1. 标记并本地移除
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) {
-            tx.isDeleted = true;
-            tx.updatedAt = Date.now();
-        }
+        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
-        
-        saveToStorage();
+        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
         refreshAllUI();
-        
-        // 2. 强制同步：把这个“删除”操作立刻传给 GitHub
         await syncWithGitHub(true);
     }
+
+    // 4. 渲染
+    function refreshAllUI() {
+        document.getElementById('historyList').innerHTML = storage.transactions.map(t => `
+            <div class="item">
+                <span>${t.remark} - ¥${t.amount}</span>
+                <span class="del-btn" onclick="deleteTransaction('${t.id}')">删除</span>
+            </div>
+        `).join('');
+    }
+
+    // 5. 添加
+    document.getElementById('ledgerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        storage.transactions.unshift({
+            id: 'TX' + Date.now(),
+            amount: parseFloat(document.getElementById('txAmount').value),
+            remark: document.getElementById('txRemark').value,
+            updatedAt: Date.now(),
+            isDeleted: false
+        });
+        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
+        refreshAllUI();
+        syncWithGitHub(true);
+    });
+
+    refreshAllUI();
 </script>
 </body>
 </html>
