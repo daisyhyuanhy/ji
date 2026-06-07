@@ -225,11 +225,66 @@
     }
 
     async function syncWithGitHub(isSilent = false) {
-        const config = getCloudConfig();
-        if(!config.user || !config.repo || !config.token) {
-            if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
-            return;
+    const config = getCloudConfig();
+    if(!config.user || !config.repo || !config.token) return;
+
+    const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+    const headers = {
+        "Authorization": `token ${config.token}`,
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    };
+
+    try {
+        // 步骤1：先获取云端最新文件信息，拿到正确的 SHA
+        let response = await fetch(url, { headers });
+        let cloudSha = null;
+        let cloudData = null;
+
+        if (response.ok) {
+            let json = await response.json();
+            cloudSha = json.sha;
+            let decodedText = decodeURIComponent(escape(atob(json.content)));
+            cloudData = JSON.parse(decodedText);
         }
+
+        // 步骤2：如果有云端数据，进行合并（解决闪回）
+        if (cloudData) {
+            let txMap = new Map(storage.transactions.map(t => [t.id, t]));
+            // 处理云端传来的更新，重点是排除被标记为已删除的记录
+            (cloudData.transactions || []).forEach(t => {
+                if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) {
+                    txMap.set(t.id, t);
+                }
+            });
+            storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+        }
+
+        // 步骤3：更新 SHA 并上传
+        storage.sha = cloudSha;
+        let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
+        let putBody = {
+            message: "☁️ 同步更新",
+            content: contentToUpload
+        };
+        if(storage.sha) putBody.sha = storage.sha; 
+
+        let putResponse = await fetch(url, {
+            method: "PUT",
+            headers: headers,
+            body: JSON.stringify(putBody)
+        });
+
+        if(putResponse.ok) {
+            let putJson = await putResponse.json();
+            storage.sha = putJson.content.sha;
+            saveToStorage();
+            if(!isSilent) console.log("✨ 同步成功");
+        }
+    } catch (error) {
+        console.error("同步出错:", error);
+    }
+}
 
         const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
         const headers = {
