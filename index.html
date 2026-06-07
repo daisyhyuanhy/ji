@@ -58,6 +58,7 @@
         .btn-group {
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -88,6 +89,16 @@
 
         .btn-primary:hover {
             background: #6861a0;
+        }
+
+        .btn-danger {
+            border: 1.5px solid #ff9aa2;
+            color: #e56b73;
+        }
+
+        .btn-danger:hover {
+            background: #ff9aa2;
+            color: white;
         }
 
         .dashboard {
@@ -321,6 +332,29 @@
             85% { opacity: 1; transform: translateX(-50%) translateY(0); }
             100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
         }
+
+        .sync-status {
+            font-size: 12px;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .sync-status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .sync-status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .sync-status.syncing {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
     </style>
 </head>
 <body>
@@ -329,9 +363,10 @@
     <div class="header-bar">
         <h1>🍑 桃气紫账本</h1>
         <div class="btn-group">
-            <button class="btn btn-success" id="syncBtn">☁️ 同步云端</button>
+            <button class="btn btn-success" id="pullBtn">📥 拉取云端</button>
+            <button class="btn btn-primary" id="pushBtn">📤 推送云端</button>
             <button class="btn btn-success" id="exportBtn">🌸 导出CSV</button>
-            <button class="btn btn-success" id="resetBtn">🔄 重置演示数据</button>
+            <button class="btn btn-danger" id="resetBtn">🔄 重置数据</button>
         </div>
     </div>
 
@@ -415,7 +450,7 @@
                 <button class="btn btn-primary" onclick="addSubCategory()">+子类</button>
             </div>
 
-            <h2 style="margin-top: 24px;" onclick="toggleSyncPanel()">☁️ 多端同步 ⏷</h2>
+            <h2 style="margin-top: 24px;" onclick="toggleSyncPanel()">☁️ GitHub 同步设置 ⏷</h2>
             <div id="syncPanel" class="collapsible-content">
                 <div class="form-group">
                     <label>GitHub 用户名</label>
@@ -426,18 +461,25 @@
                     <input type="text" id="ghRepo" placeholder="purple-ledger">
                 </div>
                 <div class="form-group">
-                    <label>🔑 Token</label>
+                    <label>🔑 Personal Access Token</label>
                     <input type="password" id="ghToken" placeholder="ghp_xxxx">
                 </div>
-                <p style="font-size: 12px; color:#7a73b0;">💡 设置后自动跨设备同步</p>
+                <p style="font-size: 12px; color:#7a73b0;">
+                    💡 提示：<br>
+                    1. 需要先在GitHub创建仓库<br>
+                    2. Token需要勾选repo权限<br>
+                    3. 拉取 = 从云端下载（会覆盖本地）<br>
+                    4. 推送 = 上传到云端（会覆盖云端）
+                </p>
+                <div id="syncStatus" class="sync-status"></div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 存储数据 - 添加一些演示数据
-    let storage = JSON.parse(localStorage.getItem('gh_ledger_data_v2')) || {
+    // 存储数据
+    let storage = JSON.parse(localStorage.getItem('gh_ledger_data_v3')) || {
         accounts: [
             { name: "微信支付", balance: 1000 },
             { name: "支付宝", balance: 800 },
@@ -453,57 +495,43 @@
                 "🎁 生活福利": ["红包惊喜", "退税返利"] 
             }
         },
-        transactions: [
-            {
-                id: 'demo_1',
-                type: 'EXPENSE',
-                amount: 68,
-                primaryCate: '🍜 餐饮美食',
-                subCate: '奶茶甜点',
-                account: '微信支付',
-                date: new Date().toISOString().split('T')[0],
-                remark: '下午茶时间',
-                updatedAt: Date.now()
-            },
-            {
-                id: 'demo_2',
-                type: 'INCOME',
-                amount: 5000,
-                primaryCate: '💼 兼职外快',
-                subCate: '设计稿费',
-                account: '支付宝',
-                date: new Date().toISOString().split('T')[0],
-                remark: '项目奖金',
-                updatedAt: Date.now()
-            }
-        ],
-        sha: null
+        transactions: [],
+        lastSyncTime: null
     };
 
     let chartInstance = null;
 
-    // 显示提示
-    function showToast(message) {
+    function showToast(message, isError = false) {
         const toast = document.createElement('div');
         toast.className = 'toast';
         toast.textContent = message;
+        toast.style.background = isError ? '#e56b73' : 'var(--primary)';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2000);
     }
 
-    // 保存到本地
-    function persist() {
-        localStorage.setItem('gh_ledger_data_v2', JSON.stringify(storage));
+    function showSyncStatus(message, type) {
+        const statusDiv = document.getElementById('syncStatus');
+        if (statusDiv) {
+            statusDiv.textContent = message;
+            statusDiv.className = `sync-status ${type}`;
+            setTimeout(() => {
+                if (statusDiv.textContent === message) {
+                    statusDiv.className = 'sync-status';
+                    statusDiv.textContent = '';
+                }
+            }, 3000);
+        }
     }
 
-    // 重新计算余额 - 基于初始余额和所有流水重新计算
+    function persist() {
+        localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage));
+    }
+
+    // 重新计算余额
     function recalcAccountBalances() {
-        // 先重置账户余额为0
-        storage.accounts.forEach(acc => {
-            acc.balance = 0;
-        });
+        storage.accounts.forEach(acc => { acc.balance = 0; });
         
-        // 按日期顺序处理所有流水
         let sortedTx = [...storage.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
         sortedTx.forEach(t => {
             let account = storage.accounts.find(a => a.name === t.account);
@@ -518,7 +546,6 @@
         persist();
     }
 
-    // 刷新所有UI
     function refreshAll() {
         renderAccountSelect();
         renderCategoryCascade();
@@ -576,7 +603,6 @@
         let chartAgg = {};
         let html = '';
 
-        // 重新计算余额
         recalcAccountBalances();
         let totalNet = storage.accounts.reduce((sum, acc) => sum + acc.balance, 0);
         
@@ -640,52 +666,33 @@
         });
     }
 
-    // 删除交易记录 - 彻底删除，不会复活
+    // 删除交易记录
     window.deleteTransaction = function(id) {
-        // 直接从数组中移除
         const index = storage.transactions.findIndex(t => t.id === id);
         if (index !== -1) {
             storage.transactions.splice(index, 1);
             persist();
             refreshAll();
-            showToast('✨ 记录已彻底删除');
+            showToast('✨ 记录已删除');
         }
     };
 
     window.deleteAccount = function(idx) {
         if(storage.accounts.length <= 1) { 
-            showToast("至少保留一个账户哦 💕"); 
+            showToast("至少保留一个账户"); 
             return; 
         }
-        const accountName = storage.accounts[idx].name;
-        // 检查该账户是否有流水记录
-        const hasTransactions = storage.transactions.some(t => t.account === accountName);
-        if(hasTransactions) {
-            if(confirm(`账户 "${accountName}" 有流水记录，删除后这些记录将无法正常显示。确定删除吗？`)) {
-                storage.accounts.splice(idx, 1);
-                persist();
-                refreshAll();
-                showToast(`已删除账户: ${accountName}`);
-            }
-        } else {
-            storage.accounts.splice(idx, 1);
-            persist();
-            refreshAll();
-            showToast(`已删除账户: ${accountName}`);
-        }
+        storage.accounts.splice(idx, 1);
+        persist();
+        refreshAll();
+        showToast('账户已删除');
     };
 
     window.addCustomAccount = function() {
         let name = document.getElementById('newAccountName').value.trim();
         let initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
-        if(!name) {
-            showToast("请输入账户名称");
-            return;
-        }
-        if(storage.accounts.find(a => a.name === name)) { 
-            showToast("账户已存在"); 
-            return; 
-        }
+        if(!name) { showToast("请输入账户名称"); return; }
+        if(storage.accounts.find(a => a.name === name)) { showToast("账户已存在"); return; }
         storage.accounts.push({ name: name, balance: initBal });
         persist();
         refreshAll();
@@ -697,15 +704,9 @@
     window.addPrimaryCategory = function() {
         const type = document.getElementById('configType').value;
         const name = document.getElementById('newPrimaryName').value.trim();
-        if(!name) {
-            showToast("请输入分类名称");
-            return;
-        }
+        if(!name) { showToast("请输入分类名称"); return; }
         if(!storage.categories[type]) storage.categories[type] = {};
-        if(storage.categories[type][name]) { 
-            showToast("主类已存在"); 
-            return; 
-        }
+        if(storage.categories[type][name]) { showToast("主类已存在"); return; }
         storage.categories[type][name] = ["默认"];
         persist();
         refreshAll();
@@ -723,26 +724,19 @@
     };
 
     window.deleteSubCategory = function(type, pri, idx) {
-        const subName = storage.categories[type][pri][idx];
         storage.categories[type][pri].splice(idx, 1);
         if(storage.categories[type][pri].length === 0) storage.categories[type][pri].push("其他");
         persist();
         refreshAll();
-        showToast(`已删除子类: ${subName}`);
+        showToast('子类已删除');
     };
 
     window.addSubCategory = function() {
         const type = document.getElementById('configType').value;
         const pri = document.getElementById('configPrimarySelect').value;
         const subName = document.getElementById('newSubName').value.trim();
-        if(!pri || !subName) {
-            showToast("请选择主类并输入子类名称");
-            return;
-        }
-        if(storage.categories[type][pri].includes(subName)) { 
-            showToast("子类已存在"); 
-            return; 
-        }
+        if(!pri || !subName) { showToast("请选择主类并输入子类名称"); return; }
+        if(storage.categories[type][pri].includes(subName)) { showToast("子类已存在"); return; }
         storage.categories[type][pri].push(subName);
         persist();
         refreshAll();
@@ -750,14 +744,13 @@
         showToast(`✅ 添加子类: ${subName}`);
     };
 
-    // 重置演示数据
     window.resetDemoData = function() {
-        if(confirm("重置数据会清除所有记录，恢复演示数据。确定吗？")) {
+        if(confirm("重置会清除所有数据，恢复为空账本。确定吗？")) {
             storage = {
                 accounts: [
-                    { name: "微信支付", balance: 1000 },
-                    { name: "支付宝", balance: 800 },
-                    { name: "现金", balance: 500 }
+                    { name: "微信支付", balance: 0 },
+                    { name: "支付宝", balance: 0 },
+                    { name: "现金", balance: 0 }
                 ],
                 categories: {
                     EXPENSE: { 
@@ -769,46 +762,18 @@
                         "🎁 生活福利": ["红包惊喜", "退税返利"] 
                     }
                 },
-                transactions: [
-                    {
-                        id: 'demo_' + Date.now() + '_1',
-                        type: 'EXPENSE',
-                        amount: 68,
-                        primaryCate: '🍜 餐饮美食',
-                        subCate: '奶茶甜点',
-                        account: '微信支付',
-                        date: new Date().toISOString().split('T')[0],
-                        remark: '下午茶时间',
-                        updatedAt: Date.now()
-                    },
-                    {
-                        id: 'demo_' + Date.now() + '_2',
-                        type: 'INCOME',
-                        amount: 5000,
-                        primaryCate: '💼 兼职外快',
-                        subCate: '设计稿费',
-                        account: '支付宝',
-                        date: new Date().toISOString().split('T')[0],
-                        remark: '项目奖金',
-                        updatedAt: Date.now()
-                    }
-                ],
-                sha: null
+                transactions: [],
+                lastSyncTime: null
             };
             persist();
             refreshAll();
-            showToast('🔄 已重置为演示数据');
+            showToast('🔄 已重置为空账本');
         }
     };
 
-    // 切换同步面板
     window.toggleSyncPanel = function() {
         const panel = document.getElementById('syncPanel');
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            panel.style.display = 'block';
-        } else {
-            panel.style.display = 'none';
-        }
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
     };
 
     // 表单提交
@@ -823,12 +788,9 @@
             account: document.getElementById('txAccount').value,
             date: document.getElementById('txDate').value,
             remark: document.getElementById('txRemark').value || '✨ 桃气笔记',
-            updatedAt: Date.now(),
+            createdAt: Date.now(),
         };
-        if(isNaN(newTx.amount) || newTx.amount <= 0) { 
-            showToast("金额必须是正数噢～"); 
-            return; 
-        }
+        if(isNaN(newTx.amount) || newTx.amount <= 0) { showToast("金额必须是正数"); return; }
         storage.transactions.unshift(newTx);
         persist();
         refreshAll();
@@ -837,7 +799,7 @@
         showToast(`✅ 已记录: ${newTx.type === 'INCOME' ? '+' : '-'}¥${newTx.amount.toFixed(2)}`);
     });
 
-    // GitHub同步相关
+    // GitHub 同步功能 - 分离拉取和推送
     function getCloudCfg() {
         return {
             user: localStorage.getItem('gh_user') || '',
@@ -858,18 +820,86 @@
         document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
     }
 
-    async function syncWithGitHub() {
+    // 推送：将本地数据上传到云端（覆盖云端）
+    async function pushToCloud() {
         saveCloudInputs();
         const cfg = getCloudCfg();
         if(!cfg.user || !cfg.repo || !cfg.token) {
-            showToast("请先填写 GitHub 配置");
+            showToast("请先填写 GitHub 配置", true);
+            showSyncStatus("请先填写 GitHub 配置", "error");
             return;
         }
         
-        const syncBtn = document.getElementById('syncBtn');
-        syncBtn.innerText = "🔄 同步中...";
+        const pushBtn = document.getElementById('pushBtn');
+        pushBtn.innerText = "⏳ 推送中...";
+        showSyncStatus("正在推送本地数据到云端...", "syncing");
         
-        const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/ledger_purple_v2.json`;
+        const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/ledger_data.json`;
+        const headers = { 
+            "Authorization": `token ${cfg.token}`, 
+            "Accept": "application/vnd.github.v3+json" 
+        };
+        
+        try {
+            // 先获取当前文件的sha（如果存在）
+            let sha = null;
+            const getRes = await fetch(url, { headers });
+            if (getRes.ok) {
+                const fileJson = await getRes.json();
+                sha = fileJson.sha;
+            }
+            
+            // 准备要上传的数据（本地最新数据）
+            const dataToUpload = {
+                accounts: storage.accounts,
+                categories: storage.categories,
+                transactions: storage.transactions,
+                lastSyncTime: new Date().toISOString(),
+                version: 3
+            };
+            
+            const content = btoa(unescape(encodeURIComponent(JSON.stringify(dataToUpload, null, 2))));
+            const putBody = { 
+                message: `推送数据 ${new Date().toLocaleString()}`, 
+                content: content,
+                branch: "main"
+            };
+            if (sha) putBody.sha = sha;
+            
+            const putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
+            if (putRes.ok) {
+                storage.lastSyncTime = new Date().toISOString();
+                persist();
+                showToast("✅ 推送成功！云端已更新");
+                showSyncStatus("推送成功！", "success");
+            } else {
+                const error = await putRes.json();
+                throw new Error(error.message || "上传失败");
+            }
+        } catch(err) {
+            console.error('Push error:', err);
+            showToast("推送失败：" + err.message, true);
+            showSyncStatus("推送失败：" + err.message, "error");
+        } finally {
+            pushBtn.innerText = "📤 推送云端";
+        }
+    }
+
+    // 拉取：从云端下载数据（覆盖本地）
+    async function pullFromCloud() {
+        saveCloudInputs();
+        const cfg = getCloudCfg();
+        if(!cfg.user || !cfg.repo || !cfg.token) {
+            showToast("请先填写 GitHub 配置", true);
+            showSyncStatus("请先填写 GitHub 配置", "error");
+            return;
+        }
+        
+        const pullBtn = document.getElementById('pullBtn');
+        pullBtn.innerText = "⏳ 拉取中...";
+        showSyncStatus("正在从云端拉取数据...", "syncing");
+        
+        const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/ledger_data.json`;
         const headers = { 
             "Authorization": `token ${cfg.token}`, 
             "Accept": "application/vnd.github.v3+json" 
@@ -877,55 +907,33 @@
         
         try {
             const getRes = await fetch(url, { headers });
-            let cloudSha = null;
-            
-            if(getRes.ok) {
-                const fileJson = await getRes.json();
-                cloudSha = fileJson.sha;
-                const content = atob(fileJson.content);
-                const remoteData = JSON.parse(content);
-                
-                // 合并数据 - 基于id去重
-                const localTxMap = new Map(storage.transactions.map(t => [t.id, t]));
-                remoteData.transactions.forEach(rtx => {
-                    if(!localTxMap.has(rtx.id)) {
-                        localTxMap.set(rtx.id, rtx);
-                    }
-                });
-                storage.transactions = Array.from(localTxMap.values());
-                storage.sha = cloudSha;
-                persist();
-                refreshAll();
+            if (!getRes.ok) {
+                if (getRes.status === 404) {
+                    throw new Error("云端还没有数据，请先推送一次");
+                }
+                throw new Error(`HTTP ${getRes.status}`);
             }
             
-            // 上传数据
-            const finalContent = btoa(unescape(encodeURIComponent(JSON.stringify({ 
-                accounts: storage.accounts, 
-                categories: storage.categories, 
-                transactions: storage.transactions, 
-                version: 2
-            }, null, 2))));
+            const fileJson = await getRes.json();
+            const content = atob(fileJson.content);
+            const cloudData = JSON.parse(content);
             
-            const putBody = { 
-                message: "🍑 同步数据", 
-                content: finalContent
-            };
-            if(storage.sha) putBody.sha = storage.sha;
+            // 用云端数据覆盖本地
+            if (cloudData.accounts) storage.accounts = cloudData.accounts;
+            if (cloudData.categories) storage.categories = cloudData.categories;
+            if (cloudData.transactions) storage.transactions = cloudData.transactions;
+            storage.lastSyncTime = cloudData.lastSyncTime || new Date().toISOString();
             
-            const putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
-            if(putRes.ok) {
-                const putJson = await putRes.json();
-                storage.sha = putJson.content.sha;
-                persist();
-                showToast("✨ 同步成功！");
-            } else {
-                showToast("上传失败");
-            }
+            persist();
+            refreshAll();
+            showToast("✅ 拉取成功！已同步云端数据");
+            showSyncStatus("拉取成功！", "success");
         } catch(err) {
-            console.error(err);
-            showToast("同步失败：" + err.message);
+            console.error('Pull error:', err);
+            showToast("拉取失败：" + err.message, true);
+            showSyncStatus("拉取失败：" + err.message, "error");
         } finally {
-            syncBtn.innerText = "☁️ 同步云端";
+            pullBtn.innerText = "📥 拉取云端";
         }
     }
 
@@ -964,7 +972,8 @@
         document.getElementById('txDate').valueAsDate = new Date();
         loadCloudToInputs();
         refreshAll();
-        document.getElementById('syncBtn').onclick = syncWithGitHub;
+        document.getElementById('pushBtn').onclick = pushToCloud;
+        document.getElementById('pullBtn').onclick = pullFromCloud;
         document.getElementById('exportBtn').onclick = exportToCSV;
         document.getElementById('resetBtn').onclick = resetDemoData;
         document.getElementById('txType').addEventListener('change', () => renderCategoryCascade());
