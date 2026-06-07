@@ -2,7 +2,7 @@
   "accounts": [
     {
       "name": "微信支付",
-      "balance": 0
+      "balance": -99
     },
     {
       "name": "支付宝",
@@ -35,6 +35,18 @@
       ]
     }
   },
-  "transactions": [],
+  "transactions": [
+    {
+      "id": "tx_1780842598829_v8wvax",
+      "type": "EXPENSE",
+      "amount": 33,
+      "primaryCate": "🍜 餐饮美食",
+      "subCate": "奶茶甜点",
+      "account": "微信支付",
+      "date": "2026-06-07",
+      "remark": "3",
+      "updatedAt": 1780842598829
+    }
+  ],
   "version": 2
 }
