@@ -521,7 +521,7 @@
         localStorage.setItem('gh_ledger_data_v2', JSON.stringify(storage));
     }
 
-    // 更新账户余额快照（基于流水重新计算每个账户最新余额）
+    // 更新账户余额快照
     function recalcAccountBalances() {
         let balanceMap = new Map();
         storage.accounts.forEach(acc => balanceMap.set(acc.name, acc.balance));
@@ -744,6 +744,16 @@
         autoSyncBackground();
     });
 
+    // 切换同步面板的显示/隐藏
+    window.toggleSyncPanel = function() {
+        const panel = document.getElementById('syncPanel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    };
+
     // ----- GitHub 同步核心 (增强错误处理)-----
     function getCloudCfg() {
         return {
@@ -900,21 +910,24 @@
         });
     }
 
-    window.onload = function() {
-        document.getElementById('txDate').valueAsDate = new Date();
-        loadCloudToInputs();
-        refreshAll();
-        recalcAccountBalances();
-        persist();
-        // 延迟自动同步
-        setTimeout(() => { autoSyncBackground(); }, 500);
-        document.getElementById('syncBtn').onclick = () => { saveCloudInputs(); syncWithGitHub(true); };
-        document.getElementById('exportBtn').onclick = () => exportToCSV();
-        document.getElementById('txType').addEventListener('change', ()=>renderCategoryCascade());
-        document.getElementById('txPrimaryCate').addEventListener('change', ()=>renderSubCascade());
-        document.getElementById('configType').addEventListener('change', ()=>renderConfigList());
-    };
-
+    // 导出CSV功能
     function exportToCSV() {
-        if(storage.transactions.length === 0) { alert("空空如也～记一笔再导出吧"); return; }
-        let csvRows = [["流水ID","日期","类型","主分类","子分类","账户","金额","
+        if(storage.transactions.length === 0) { 
+            alert("空空如也～记一笔再导出吧"); 
+            return; 
+        }
+        let csvRows = [["流水ID","日期","类型","主分类","子分类","账户","金额","备注"]];
+        storage.transactions.forEach(t => {
+            csvRows.push([
+                t.id, 
+                t.date, 
+                t.type === 'INCOME' ? '收入' : '支出', 
+                t.primaryCate, 
+                t.subCate, 
+                t.account, 
+                t.amount.toFixed(2), 
+                t.remark
+            ]);
+        });
+        const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv;charset=utf-8
