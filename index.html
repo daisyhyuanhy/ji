@@ -241,54 +241,83 @@
         return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') };
     }
 
-async function syncWithGitHub(isSilent = false) {
-    const config = getCloudConfig();
-    if(!config.user || !config.repo || !config.token) {
-        if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
-        return;
-    }
-
-    const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
-    const headers = {
-        "Authorization": `token ${config.token}`,
-        "Accept": "application/vnd.github.v3+json",
-        "Content-Type": "application/json"
-    };
-
-    if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在同步...";
-
-    try {
-        // 1. 获取云端信息
-        let response = await fetch(url, { headers });
-        if (response.ok) {
-            let json = await response.json();
-            storage.sha = json.sha; 
-        } else {
-            storage.sha = null; 
+    async function syncWithGitHub(isSilent = false) {
+        const config = getCloudConfig();
+        if(!config.user || !config.repo || !config.token) {
+            if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
+            return;
         }
 
-        // 2. 直接将本地当前状态覆盖上传到云端
-        let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
-        let putBody = {
-            message: "☁️ 桃气紫账本同步更新",
-            content: contentToUpload
+        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+        const headers = {
+            "Authorization": `token ${config.token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
         };
-        if(storage.sha) putBody.sha = storage.sha;
 
-        await fetch(url, {
-            method: "PUT",
-            headers: headers,
-            body: JSON.stringify(putBody)
-        });
-        
-        refreshAllUI();
-    } catch (error) {
-        console.error("同步出错:", error);
-    } finally {
-        document.getElementById('syncBtn').innerText = "☁️ 手动同步";
+        if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
+
+        try {
+            let response = await fetch(url, { headers });
+            let cloudData = null;
+            let cloudSha = null;
+
+            if (response.ok) {
+                let json = await response.json();
+                cloudSha = json.sha;
+                let decodedText = decodeURIComponent(escape(atob(json.content)));
+                cloudData = JSON.parse(decodedText);
+            }
+
+            if (cloudData) {
+                let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
+                cloudData.accounts.forEach(a => accountMap.set(a.name, a));
+                storage.accounts = Array.from(accountMap.values());
+
+                let txMap = new Map(storage.transactions.map(t => [t.id, t]));
+                cloudData.transactions.forEach(t => {
+                    if (!txMap.has(t.id) || (t.updatedAt && t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
+                        txMap.set(t.id, t);
+                    }
+                });
+                storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+                storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
+            }
+
+            storage.sha = cloudSha;
+            saveToStorage();
+            refreshAllUI();
+
+            let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
+            let putBody = {
+                message: "☁️ 桃气紫账本数据自动增量同步",
+                content: contentToUpload
+            };
+            if(storage.sha) putBody.sha = storage.sha;
+
+            let putResponse = await fetch(url, {
+                method: "PUT",
+                headers: headers,
+                body: JSON.stringify(putBody)
+            });
+
+            if(putResponse.ok) {
+                let putJson = await putResponse.json();
+                storage.sha = putJson.content.sha;
+                saveToStorage();
+                if(!isSilent) alert("✨ 恭喜！手机电脑数据已同步成功！");
+            } else {
+                if(!isSilent) alert("回传云端时遇到点小拥堵，稍后重试下呢~");
+            }
+
+        } catch (error) {
+            console.error(error);
+            if(!isSilent) alert("网络连接不畅，账目暂时保存在本地缓存中~");
+        } finally {
+            document.getElementById('syncBtn').innerText = "☁️ 手动同步";
+        }
     }
-}
-        
+
     function refreshAllUI() { renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard(); }
     function renderAccountSelectors() { document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join(''); }
     function renderCategoryCascade() {
@@ -365,20 +394,11 @@ async function syncWithGitHub(isSilent = false) {
         document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
         syncWithGitHub(true);
     });
-function deleteTransaction(id) {
-        // 1. 标记删除并从本地数组移除
+    function deleteTransaction(id) {
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) {
-            tx.isDeleted = true;
-            tx.updatedAt = Date.now();
-        }
+        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
-        
-        saveToStorage();
-        refreshAllUI();
-        
-        // 2. 强制同步，将“已删除”的状态实时更新到 GitHub 云端
-        syncWithGitHub(true); 
+        saveToStorage(); refreshAllUI(); syncWithGitHub(true);
     }
     function renderTransactionListAndDashboard() {
         let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
@@ -399,7 +419,7 @@ function deleteTransaction(id) {
                         <div class="meta">📅 ${t.date} | 👛 ${t.account} | 📝 ${t.remark}</div>
                     </div>
                     <div style="text-align:right;">
-                        <div class="amt ${t.type}">${sign}¥${(t.amount || 0).toFixed(2)}</div>
+                        <div class="amt ${t.type}">${sign}¥${t.amount.toFixed(2)}</div>
                         <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction('${t.id}')">擦除</span>
                     </div>
                 </div>
