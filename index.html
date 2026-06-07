@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>🍑 桃气紫账本 | 云同步灵境版</title>
-    <!-- Chart.js CDN -->
+    <!-- 使用更稳定的 Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -363,6 +363,18 @@
             background: none;
             border: none;
         }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .error-msg {
+            color: #e56b73;
+            font-size: 12px;
+            margin-top: 8px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -474,6 +486,7 @@
                     <input type="password" id="ghToken" placeholder="ghp_xxxx">
                 </div>
                 <p style="font-size: 12px; color:#7a73b0;">💡 设置后自动跨设备同步，桃花运加持数据不丢失</p>
+                <div id="syncStatus" class="error-msg"></div>
             </div>
         </div>
     </div>
@@ -510,11 +523,8 @@
 
     // 更新账户余额快照（基于流水重新计算每个账户最新余额）
     function recalcAccountBalances() {
-        // 初始化余额字典
         let balanceMap = new Map();
         storage.accounts.forEach(acc => balanceMap.set(acc.name, acc.balance));
-        // 按时间顺序重算: 实际在展示前需要基于原始起始余额 + 流水改变, 更稳健: 基于初始余额重演所有流水 (按照日期顺序)
-        // 为了净值准确，我们按日期升序重演
         let sortedTx = [...storage.transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
         sortedTx.forEach(t => {
             let curBal = balanceMap.get(t.account);
@@ -523,7 +533,6 @@
                 balanceMap.set(t.account, curBal + delta);
             }
         });
-        // 写回storage的账户余额字段用于显示下一次初始化同步
         storage.accounts.forEach(acc => {
             let newBal = balanceMap.get(acc.name);
             if (newBal !== undefined) acc.balance = newBal;
@@ -562,7 +571,6 @@
     }
 
     function renderConfigList() {
-        // 账户列表渲染
         const accContainer = document.getElementById('accountConfigList');
         accContainer.innerHTML = storage.accounts.map((acc, idx) => `
             <div class="config-item">
@@ -571,7 +579,6 @@
             </div>
         `).join('');
 
-        // 分类管理面板
         const type = document.getElementById('configType').value;
         const cateData = storage.categories[type];
         let cateHtml = '';
@@ -591,7 +598,6 @@
         let chartAgg = {};
         let html = '';
 
-        // 先基于最新账户余额展示净值，同时把余额重新计算确保视图准确
         recalcAccountBalances();
         let totalNet = storage.accounts.reduce((sum, acc) => sum + acc.balance, 0);
         
@@ -738,7 +744,7 @@
         autoSyncBackground();
     });
 
-    // ----- GitHub 同步核心 -----
+    // ----- GitHub 同步核心 (增强错误处理)-----
     function getCloudCfg() {
         return {
             user: localStorage.getItem('gh_user') || '',
@@ -761,65 +767,138 @@
 
     async function syncWithGitHub(manual = true) {
         const cfg = getCloudCfg();
+        const syncBtn = document.getElementById('syncBtn');
+        const syncStatus = document.getElementById('syncStatus');
+        
         if(!cfg.user || !cfg.repo || !cfg.token) {
-            if(manual) alert("请先填写 GitHub 配置 🍑");
+            if(manual) {
+                alert("请先填写 GitHub 配置 🍑\n\n需要：\n1. GitHub 用户名\n2. 仓库名（需提前创建）\n3. Personal Access Token (需 repo 权限)");
+                if(syncStatus) syncStatus.innerText = "⚠️ 请先填写完整的 GitHub 配置";
+            }
             return;
         }
-        const syncBtn = document.getElementById('syncBtn');
-        if(manual) syncBtn.innerText = "🔄 同步中...";
+        
+        if(manual) {
+            syncBtn.innerText = "🔄 同步中...";
+            if(syncStatus) syncStatus.innerText = "⏳ 正在同步...";
+        }
+        
         const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/ledger_purple_v2.json`;
-        const headers = { "Authorization": `token ${cfg.token}`, "Accept": "application/vnd.github.v3+json" };
+        const headers = { 
+            "Authorization": `token ${cfg.token}`, 
+            "Accept": "application/vnd.github.v3+json" 
+        };
+        
         try {
-            let cloudSha = null, remoteData = null;
+            // 尝试获取远程文件
+            let cloudSha = null;
+            let remoteData = null;
             const getRes = await fetch(url, { headers });
-            if(getRes.ok) {
+            
+            if(getRes.status === 404) {
+                // 文件不存在，首次同步
+                if(manual && syncStatus) syncStatus.innerText = "📝 首次同步，将创建云端文件";
+            } else if(getRes.ok) {
                 const fileJson = await getRes.json();
                 cloudSha = fileJson.sha;
                 const content = atob(fileJson.content);
                 remoteData = JSON.parse(content);
-            }
-            if(remoteData && remoteData.transactions) {
-                // 智能合并: 基于id和updatedAt
-                const localTxMap = new Map(storage.transactions.map(t => [t.id, t]));
-                remoteData.transactions.forEach(rtx => {
-                    let local = localTxMap.get(rtx.id);
-                    if(!local || (rtx.updatedAt && rtx.updatedAt > (local.updatedAt || 0))) {
-                        localTxMap.set(rtx.id, rtx);
+                
+                // 智能合并数据
+                if(remoteData && remoteData.transactions) {
+                    const localTxMap = new Map(storage.transactions.map(t => [t.id, t]));
+                    remoteData.transactions.forEach(rtx => {
+                        let local = localTxMap.get(rtx.id);
+                        if(!local || (rtx.updatedAt && rtx.updatedAt > (local.updatedAt || 0))) {
+                            localTxMap.set(rtx.id, rtx);
+                        }
+                    });
+                    storage.transactions = Array.from(localTxMap.values()).sort((a,b) => new Date(b.date) - new Date(a.date));
+                    
+                    if(remoteData.accounts) {
+                        let accMap = new Map(storage.accounts.map(a=>[a.name,a]));
+                        remoteData.accounts.forEach(a=> accMap.set(a.name, a));
+                        storage.accounts = Array.from(accMap.values());
                     }
-                });
-                storage.transactions = Array.from(localTxMap.values()).sort((a,b) => new Date(b.date) - new Date(a.date));
-                // 合并账户与分类(简易偏向于云端新分类)
-                if(remoteData.accounts) {
-                    let accMap = new Map(storage.accounts.map(a=>[a.name,a]));
-                    remoteData.accounts.forEach(a=> accMap.set(a.name, a));
-                    storage.accounts = Array.from(accMap.values());
+                    if(remoteData.categories) {
+                        storage.categories = JSON.parse(JSON.stringify(remoteData.categories));
+                    }
+                    storage.sha = cloudSha;
+                    persist();
+                    refreshAll();
+                    if(manual && syncStatus) syncStatus.innerText = "✅ 已合并云端数据";
                 }
-                if(remoteData.categories) {
-                    storage.categories = JSON.parse(JSON.stringify(remoteData.categories));
-                }
-                storage.sha = cloudSha;
-                persist();
-                refreshAll();
+            } else {
+                throw new Error(`HTTP ${getRes.status}: ${getRes.statusText}`);
             }
+            
             // 上传本地最新数据
-            const finalContent = btoa(unescape(encodeURIComponent(JSON.stringify({ accounts: storage.accounts, categories: storage.categories, transactions: storage.transactions, version: 2 }, null, 2))));
-            const putBody = { message: "🍑 紫气同步", content: finalContent };
+            const finalContent = btoa(unescape(encodeURIComponent(JSON.stringify({ 
+                accounts: storage.accounts, 
+                categories: storage.categories, 
+                transactions: storage.transactions, 
+                version: 2,
+                lastSync: new Date().toISOString()
+            }, null, 2))));
+            
+            const putBody = { 
+                message: "🍑 紫气同步 " + new Date().toLocaleString(), 
+                content: finalContent,
+                branch: "main"
+            };
             if(storage.sha) putBody.sha = storage.sha;
+            
             const putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
             if(putRes.ok) {
                 const putJson = await putRes.json();
                 storage.sha = putJson.content.sha;
                 persist();
-                if(manual) alert("✨ 云朵已收纳，数据同步完成 ✨");
-            } else if(manual) alert("上传失败，检查token权限或仓库是否存在");
-        } catch(err) { console.error(err); if(manual) alert("网络错误，稍后重试～"); }
-        finally { if(manual) syncBtn.innerText = "☁️ 同步云端"; }
+                if(manual) {
+                    alert("✨ 云朵已收纳，数据同步完成 ✨");
+                    if(syncStatus) syncStatus.innerText = "✅ 同步成功！";
+                    setTimeout(() => { if(syncStatus) syncStatus.innerText = ""; }, 3000);
+                }
+            } else {
+                const errorText = await putRes.text();
+                throw new Error(`上传失败: ${putRes.status} - ${errorText}`);
+            }
+        } catch(err) {
+            console.error('Sync error:', err);
+            if(manual) {
+                let errorMsg = "网络连接不畅，账目暂时保存在本地缓存中~\n";
+                if(err.message.includes("Not Found")) {
+                    errorMsg = "仓库不存在或Token权限不足\n请确认：\n1. 仓库已创建\n2. Token 有 repo 权限\n3. 仓库名正确";
+                } else if(err.message.includes("401")) {
+                    errorMsg = "Token 无效或已过期，请重新生成";
+                }
+                alert(errorMsg);
+                if(syncStatus) syncStatus.innerText = "❌ " + errorMsg.split('\n')[0];
+            }
+        } finally {
+            if(manual) {
+                syncBtn.innerText = "☁️ 同步云端";
+                setTimeout(() => { if(syncStatus && syncStatus.innerText === "⏳ 正在同步...") syncStatus.innerText = ""; }, 2000);
+            }
+        }
     }
 
-    function autoSyncBackground() { syncWithGitHub(false).catch(e=>console.log); }
+    function autoSyncBackground() { 
+        const cfg = getCloudCfg();
+        if(cfg.user && cfg.repo && cfg.token) {
+            syncWithGitHub(false).catch(e => console.log("后台同步失败:", e));
+        }
+    }
 
     // 辅助转义
-    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; return m;}); }
+    function escapeHtml(str) { 
+        if(!str) return ''; 
+        return str.replace(/[&<>]/g, function(m){ 
+            if(m === '&') return '&amp;'; 
+            if(m === '<') return '&lt;'; 
+            if(m === '>') return '&gt;'; 
+            return m;
+        });
+    }
 
     window.onload = function() {
         document.getElementById('txDate').valueAsDate = new Date();
@@ -827,7 +906,8 @@
         refreshAll();
         recalcAccountBalances();
         persist();
-        setTimeout(() => { autoSyncBackground(); }, 300);
+        // 延迟自动同步
+        setTimeout(() => { autoSyncBackground(); }, 500);
         document.getElementById('syncBtn').onclick = () => { saveCloudInputs(); syncWithGitHub(true); };
         document.getElementById('exportBtn').onclick = () => exportToCSV();
         document.getElementById('txType').addEventListener('change', ()=>renderCategoryCascade());
@@ -837,22 +917,4 @@
 
     function exportToCSV() {
         if(storage.transactions.length === 0) { alert("空空如也～记一笔再导出吧"); return; }
-        let csvRows = [["流水ID","日期","类型","主分类","子分类","账户","金额","备注"]];
-        storage.transactions.forEach(t => {
-            csvRows.push([t.id, t.date, t.type === 'INCOME' ? '收入' : '支出', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), t.remark]);
-        });
-        const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv;charset=utf-8;"});
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.href = url; link.setAttribute("download", `桃气账本_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
-    }
-
-    window.toggleSyncPanel = function() {
-        const panel = document.getElementById('syncPanel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-    };
-</script>
-</body>
-</html>
+        let csvRows = [["流水ID","日期","类型","主分类","子分类","账户","金额","
