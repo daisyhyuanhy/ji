@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- saved from url=(0086)file:///C:/Users/50246/Desktop/%E8%AE%B0%E8%B4%A6%E6%9C%AC%E9%9A%90%E8%97%8FTOKEN.html -->
-<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔮 桃气紫账本 (GitHub云同步版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -32,7 +32,7 @@
         @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
         
         .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); height: fit-content; border: 2px solid #fff; }
-        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
+        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; }
         h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
 
         /* 表单 */
@@ -67,9 +67,6 @@
         .config-item { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #dedae8; align-items: center; font-weight: 600; }
         .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 16px; }
         .chart-wrapper { padding: 10px; background: var(--primary-light); border-radius: 14px; margin-top: 20px; border: 1px solid #fff; }
-        
-        /* 折叠区 */
-        .collapsible-content { display: none; }
     </style>
 </head>
 <body>
@@ -84,9 +81,9 @@
     </div>
 
     <div class="dashboard">
-        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥-5.00</p></div>
+        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥0.00</p></div>
         <div class="card"><h3>本期收入鸭</h3><p id="totalIncome" style="color:#43aa8b">¥0.00</p></div>
-        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥5.00</p></div>
+        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥0.00</p></div>
     </div>
 
     <div class="grid-layout">
@@ -102,23 +99,23 @@
                 </div>
                 <div class="form-group">
                     <label>交易金额 (元)</label>
-                    <input type="number" id="txAmount" step="0.01" required="" placeholder="0.00">
+                    <input type="number" id="txAmount" step="0.01" required placeholder="0.00">
                 </div>
                 <div class="form-group">
                     <label>一级大类</label>
-                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"><option value="餐饮美食">餐饮美食</option><option value="休闲娱乐">休闲娱乐</option></select>
+                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select>
                 </div>
                 <div class="form-group">
                     <label>二级细分类</label>
-                    <select id="txSubCate"><option value="买奶茶 🥤">买奶茶 🥤</option><option value="开心火锅 🍲">开心火锅 🍲</option></select>
+                    <select id="txSubCate"></select>
                 </div>
                 <div class="form-group">
                     <label>支付/收款账户</label>
-                    <select id="txAccount"><option value="微信支付">微信支付</option><option value="支付宝">支付宝</option><option value="现金">现金</option></select>
+                    <select id="txAccount"></select>
                 </div>
                 <div class="form-group">
                     <label>记账日期</label>
-                    <input type="date" id="txDate" required="">
+                    <input type="date" id="txDate" required>
                 </div>
                 <div class="form-group">
                     <label>备忘小树洞</label>
@@ -130,32 +127,15 @@
 
         <div class="box">
             <h2>账目流水日记本</h2>
-            <div class="list-container" id="historyList">
-                <div class="item">
-                    <div>
-                        <div><span class="cate-tag">餐饮美食</span><span class="sub-tag">买奶茶 🥤</span></div>
-                        <div class="meta">📅 2026-06-06 | 👛 微信支付 | 📝 贴心留白</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div class="amt EXPENSE">－¥5.00</div>
-                        <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction(&#39;TX1780761749322_1jyq&#39;)">擦除</span>
-                    </div>
-                </div>
-            </div>
+            <div class="list-container" id="historyList"></div>
             <div class="chart-wrapper">
-                <canvas id="analyticsChart" height="401" width="401" style="display: block; box-sizing: border-box; height: 321.2px; width: 321px;"></canvas>
+                <canvas id="analyticsChart" height="120"></canvas>
             </div>
         </div>
 
         <div class="box">
             <h2>小金库账户管理</h2>
-            <div class="config-list" id="accountConfigList">
-            <div class="config-item"><span>💰 微信支付 (￥0)</span><span class="del-btn" onclick="deleteAccount(0)">×</span></div>
-        
-            <div class="config-item"><span>💰 支付宝 (￥0)</span><span class="del-btn" onclick="deleteAccount(1)">×</span></div>
-        
-            <div class="config-item"><span>💰 现金 (￥0)</span><span class="del-btn" onclick="deleteAccount(2)">×</span></div>
-        </div>
+            <div class="config-list" id="accountConfigList"></div>
             <div class="inline-form">
                 <input type="text" id="newAccountName" placeholder="新账户名">
                 <input type="number" id="newAccountInit" placeholder="初始" style="width:65px;">
@@ -169,33 +149,31 @@
                     <option value="INCOME">修改收入项</option>
                 </select>
             </div>
-            <div class="config-list" id="cateConfigList"><div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ 餐饮美食 <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;)">[删]</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 买奶茶 🥤</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;, 0)">×</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 开心火锅 🍲</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;, 1)">×</span></div><div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ 休闲娱乐 <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory(&#39;EXPENSE&#39;,&#39;休闲娱乐&#39;)">[删]</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 猫咖体验 🐱</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;休闲娱乐&#39;, 0)">×</span></div></div>
+            <div class="config-list" id="cateConfigList"></div>
             <div class="inline-form">
                 <input type="text" id="newPrimaryName" placeholder="新增主大类">
                 <button class="btn btn-primary" style="width:65px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
             </div>
             <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:6px; margin-top:6px;">
-                <select id="configPrimarySelect" style="width:40%;"><option value="餐饮美食">餐饮美食</option><option value="休闲娱乐">休闲娱乐</option></select>
+                <select id="configPrimarySelect" style="width:40%;"></select>
                 <input type="text" id="newSubName" placeholder="新二级子类" style="width:45%;">
                 <button class="btn btn-primary" style="width:45px; padding:0; font-size:12px;" onclick="addSubCategory()">+</button>
             </div>
 
-            <h2 style="margin-top: 20px; color: #a389d4;" onclick="toggleSyncPanel()">☁️ 多端同步小雷达 <span>[展开/收起]</span></h2>
-            <div id="syncPanel" class="collapsible-content" style="display: block;">
-                <div class="form-group">
-                    <label>GitHub 用户名</label>
-                    <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
-                </div>
-                <div class="form-group">
-                    <label>仓库名称</label>
-                    <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
-                </div>
-                <div class="form-group">
-                    <label>你的私人 Token</label>
-                    <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
-                </div>
-                <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
+            <h2 style="margin-top: 20px; color: #a389d4;">☁️ 多端同步小雷达</h2>
+            <div class="form-group">
+                <label>GitHub 用户名</label>
+                <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
             </div>
+            <div class="form-group">
+                <label>仓库名称</label>
+                <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
+            </div>
+            <div class="form-group">
+                <label>你的私人 Token</label>
+                <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
+            </div>
+            <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
         </div>
     </div>
 </div>
@@ -208,7 +186,7 @@
             INCOME: { '日常兼职': ['副业补贴'], '生活福利': ['手气红包'] }
         },
         transactions: [],
-        sha: null
+        sha: null // 云端文件标记
     };
 
     let chartInstance = null;
@@ -217,16 +195,15 @@
         document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
         loadCloudConfig();
         refreshAllUI();
+        // 自动静默同步
         if(getCloudConfig().token) { syncWithGitHub(true); }
     };
 
-    function toggleSyncPanel() {
-        const panel = document.getElementById('syncPanel');
-        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+    function saveToStorage() {
+        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
     }
 
-    function saveToStorage() { localStorage.setItem('gh_ledger_data', JSON.stringify(storage)); }
-
+    /* 读取与保存右下角的云端配置 */
     function loadCloudConfig() {
         document.getElementById('ghUser').value = localStorage.getItem('gh_user') || '';
         document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
@@ -238,9 +215,14 @@
         localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
     }
     function getCloudConfig() {
-        return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') };
+        return {
+            user: localStorage.getItem('gh_user'),
+            repo: localStorage.getItem('gh_repo'),
+            token: localStorage.getItem('gh_token')
+        };
     }
 
+    /* ☁️ 核心云同步模块：利用 GitHub API 双向合并 */
     async function syncWithGitHub(isSilent = false) {
         const config = getCloudConfig();
         if(!config.user || !config.repo || !config.token) {
@@ -258,6 +240,7 @@
         if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
 
         try {
+            // 1. 尝试从云端下载最新的数据
             let response = await fetch(url, { headers });
             let cloudData = null;
             let cloudSha = null;
@@ -265,21 +248,28 @@
             if (response.ok) {
                 let json = await response.json();
                 cloudSha = json.sha;
+                // 解密云端 Base64 文本
                 let decodedText = decodeURIComponent(escape(atob(json.content)));
                 cloudData = JSON.parse(decodedText);
             }
 
+            // 2. 双向合并策略
             if (cloudData) {
+                // 合并账户
                 let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
                 cloudData.accounts.forEach(a => accountMap.set(a.name, a));
                 storage.accounts = Array.from(accountMap.values());
 
+                // 合并流水（根据唯一ID去重）
                 let txMap = new Map(storage.transactions.map(t => [t.id, t]));
                 cloudData.transactions.forEach(t => {
+                    // 如果云端更新时间比本地更晚，或者本地没有，则采用云端数据
                     if (!txMap.has(t.id) || (t.updatedAt && t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
                         txMap.set(t.id, t);
                     }
                 });
+                
+                // 过滤已擦除项并重排序
                 storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
                 storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
             }
@@ -288,12 +278,13 @@
             saveToStorage();
             refreshAllUI();
 
+            // 3. 将合并后的最新数据回传推送到云端保存
             let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
             let putBody = {
                 message: "☁️ 桃气紫账本数据自动增量同步",
                 content: contentToUpload
             };
-            if(storage.sha) putBody.sha = storage.sha;
+            if(storage.sha) putBody.sha = storage.sha; // 覆盖旧版本需要携带 sha
 
             let putResponse = await fetch(url, {
                 method: "PUT",
@@ -303,7 +294,7 @@
 
             if(putResponse.ok) {
                 let putJson = await putResponse.json();
-                storage.sha = putJson.content.sha;
+                storage.sha = putJson.content.sha; // 抓取最新 sha 锁
                 saveToStorage();
                 if(!isSilent) alert("✨ 恭喜！手机电脑数据已同步成功！");
             } else {
@@ -318,14 +309,22 @@
         }
     }
 
-    function refreshAllUI() { renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard(); }
-    function renderAccountSelectors() { document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join(''); }
+    /* 基础渲染与交互逻辑 */
+    function refreshAllUI() {
+        renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard();
+    }
+
+    function renderAccountSelectors() {
+        document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+    }
+
     function renderCategoryCascade() {
         const type = document.getElementById('txType').value;
         const primaries = Object.keys(storage.categories[type]);
         document.getElementById('txPrimaryCate').innerHTML = primaries.map(p => `<option value="${p}">${p}</option>`).join('');
         renderSubCategoryCascade();
     }
+
     function renderSubCategoryCascade() {
         const type = document.getElementById('txType').value;
         const priValue = document.getElementById('txPrimaryCate').value;
@@ -333,6 +332,7 @@
         const subs = storage.categories[type][priValue] || [];
         document.getElementById('txSubCate').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
     }
+
     function renderConfigLists() {
         document.getElementById('accountConfigList').innerHTML = storage.accounts.map((a, i) => `
             <div class="config-item"><span>💰 ${a.name} (￥${a.balance})</span><span class="del-btn" onclick="deleteAccount(${i})">×</span></div>
@@ -349,7 +349,9 @@
         document.getElementById('cateConfigList').innerHTML = html;
         document.getElementById('configPrimarySelect').innerHTML = Object.keys(data).map(p => `<option value="${p}">${p}</option>`).join('');
     }
+
     function renderConfigCateCascade() { renderConfigLists(); }
+
     function addCustomAccount() {
         const name = document.getElementById('newAccountName').value.trim();
         const initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
@@ -357,7 +359,9 @@
         saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newAccountName').value = ''; document.getElementById('newAccountInit').value = '';
     }
+
     function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
+
     function addPrimaryCategory() {
         const type = document.getElementById('configType').value;
         const name = document.getElementById('newPrimaryName').value.trim();
@@ -365,7 +369,9 @@
         storage.categories[type][name] = []; saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newPrimaryName').value = '';
     }
+
     function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
+
     function addSubCategory() {
         const type = document.getElementById('configType').value;
         const pri = document.getElementById('configPrimarySelect').value;
@@ -374,7 +380,9 @@
         storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI(); syncWithGitHub(true);
         document.getElementById('newSubName').value = '';
     }
+
     function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
+
     document.getElementById('ledgerForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const item = {
@@ -392,22 +400,30 @@
         storage.transactions.unshift(item);
         saveToStorage(); refreshAllUI();
         document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
-        syncWithGitHub(true);
+        syncWithGitHub(true); // 记账后自动静默同步到云端
     });
+
     function deleteTransaction(id) {
+        // 标记为逻辑删除，方便同步删除状态
         let tx = storage.transactions.find(t => t.id === id);
-        if(tx) { tx.isDeleted = true; tx.updatedAt = Date.now(); }
+        if(tx) {
+            tx.isDeleted = true;
+            tx.updatedAt = Date.now();
+        }
         storage.transactions = storage.transactions.filter(t => t.id !== id);
         saveToStorage(); refreshAllUI(); syncWithGitHub(true);
     }
+
     function renderTransactionListAndDashboard() {
         let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
         let currentAccountBalances = {};
         storage.accounts.forEach(a => currentAccountBalances[a.name] = a.balance);
+        
         [...storage.transactions].reverse().forEach(t => {
             if(t.type === 'INCOME') { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] += t.amount; }
             else { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] -= t.amount; }
         });
+
         storage.transactions.forEach(t => {
             if (t.type === 'INCOME') incomeSum += t.amount;
             else { expenseSum += t.amount; chartData[t.primaryCate] = (chartData[t.primaryCate] || 0) + t.amount; }
@@ -425,6 +441,7 @@
                 </div>
             `;
         });
+
         let netAssetCalculated = Object.values(currentAccountBalances).reduce((a, b) => a + b, 0);
         document.getElementById('totalIncome').innerText = `¥${incomeSum.toFixed(2)}`;
         document.getElementById('totalExpense').innerText = `¥${expenseSum.toFixed(2)}`;
@@ -432,6 +449,7 @@
         document.getElementById('historyList').innerHTML = html || '<p style="color:#9c97b8; text-align:center; padding:20px;">小本子空空如也 ⭐️</p>';
         renderChart(chartData);
     }
+
     function renderChart(chartData) {
         const ctx = document.getElementById('analyticsChart').getContext('2d');
         if (chartInstance) chartInstance.destroy();
@@ -443,6 +461,7 @@
             options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#4a4563', font: { weight: 'bold' } } } } }
         });
     }
+
     function exportToExcel() {
         if(storage.transactions.length === 0) { alert('没有流水数据可以导出哦！'); return; }
         let csvContent = "\uFEFF流水单号,记账日期,流水类型,主分类,子细分,结算账户,交易金额,备注小记\r\n";
@@ -456,5 +475,5 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 </script>
-
-</body></html>
+</body>
+</html>
