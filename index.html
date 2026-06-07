@@ -481,9 +481,9 @@
     // 存储数据
     let storage = JSON.parse(localStorage.getItem('gh_ledger_data_v3')) || {
         accounts: [
-            { name: "微信支付", balance: 1000 },
-            { name: "支付宝", balance: 800 },
-            { name: "现金", balance: 500 }
+            { name: "微信支付", balance: 0 },
+            { name: "支付宝", balance: 0 },
+            { name: "现金", balance: 0 }
         ],
         categories: {
             EXPENSE: { 
@@ -500,6 +500,19 @@
     };
 
     let chartInstance = null;
+
+    // 正确的 Base64 编码/解码函数（支持中文）
+    function utf8ToBase64(str) {
+        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+            return String.fromCharCode(parseInt(p1, 16));
+        }));
+    }
+
+    function base64ToUtf8(base64) {
+        return decodeURIComponent(Array.prototype.map.call(atob(base64), function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+    }
 
     function showToast(message, isError = false) {
         const toast = document.createElement('div');
@@ -799,7 +812,7 @@
         showToast(`✅ 已记录: ${newTx.type === 'INCOME' ? '+' : '-'}¥${newTx.amount.toFixed(2)}`);
     });
 
-    // GitHub 同步功能 - 分离拉取和推送
+    // GitHub 同步功能 - 使用正确的编码
     function getCloudCfg() {
         return {
             user: localStorage.getItem('gh_user') || '',
@@ -820,7 +833,7 @@
         document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
     }
 
-    // 推送：将本地数据上传到云端（覆盖云端）
+    // 推送：将本地数据上传到云端
     async function pushToCloud() {
         saveCloudInputs();
         const cfg = getCloudCfg();
@@ -858,7 +871,10 @@
                 version: 3
             };
             
-            const content = btoa(unescape(encodeURIComponent(JSON.stringify(dataToUpload, null, 2))));
+            // 使用正确的UTF-8编码
+            const jsonStr = JSON.stringify(dataToUpload, null, 2);
+            const content = utf8ToBase64(jsonStr);
+            
             const putBody = { 
                 message: `推送数据 ${new Date().toLocaleString()}`, 
                 content: content,
@@ -885,7 +901,7 @@
         }
     }
 
-    // 拉取：从云端下载数据（覆盖本地）
+    // 拉取：从云端下载数据（使用正确的解码）
     async function pullFromCloud() {
         saveCloudInputs();
         const cfg = getCloudCfg();
@@ -915,8 +931,9 @@
             }
             
             const fileJson = await getRes.json();
-            const content = atob(fileJson.content);
-            const cloudData = JSON.parse(content);
+            // 使用正确的UTF-8解码
+            const jsonStr = base64ToUtf8(fileJson.content);
+            const cloudData = JSON.parse(jsonStr);
             
             // 用云端数据覆盖本地
             if (cloudData.accounts) storage.accounts = cloudData.accounts;
@@ -947,7 +964,7 @@
             csvRows.push([t.id, t.date, t.type === 'INCOME' ? '收入' : '支出', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), t.remark]);
         });
         const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv"});
+        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv;charset=utf-8;"});
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.href = url;
