@@ -2,7 +2,7 @@
   "accounts": [
     {
       "name": "支付宝",
-      "balance": -55
+      "balance": 0
     },
     {
       "name": "现金",
@@ -36,11 +36,11 @@
       "id": "tx_1780843971848_qdaya7",
       "type": "EXPENSE",
       "amount": 55,
-      "primaryCate": "🍜 餐饮美食",
-      "subCate": "奶茶甜点",
-      "account": "支付宝",
+      "primaryCate": "ð é¤é¥®ç¾é£",
+      "subCate": "å¥¶è¶çç¹",
+      "account": "æ¯ä»å®",
       "date": "2026-06-07",
-      "remark": "✨ 桃气笔记",
+      "remark": "â¨ æ¡æ°ç¬è®°",
       "updatedAt": 1780843971848
     }
   ],
