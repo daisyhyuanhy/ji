@@ -34,18 +34,6 @@
   },
   "transactions": [
     {
-      "id": "TX1780753618193_i9tv",
-      "type": "EXPENSE",
-      "amount": 5,
-      "primaryCate": "餐饮美食",
-      "subCate": "买奶茶 🥤",
-      "account": "微信支付",
-      "date": "2026-06-06",
-      "remark": "贴心留白",
-      "updatedAt": 1780753618193,
-      "isDeleted": false
-    },
-    {
       "id": "TX1780761749322_1jyq",
       "type": "EXPENSE",
       "amount": 5,
@@ -56,7 +44,19 @@
       "remark": "贴心留白",
       "updatedAt": 1780761749322,
       "isDeleted": false
+    },
+    {
+      "id": "TX1780753618193_i9tv",
+      "type": "EXPENSE",
+      "amount": 5,
+      "primaryCate": "餐饮美食",
+      "subCate": "买奶茶 🥤",
+      "account": "微信支付",
+      "date": "2026-06-06",
+      "remark": "贴心留白",
+      "updatedAt": 1780753618193,
+      "isDeleted": false
     }
   ],
-  "sha": "53e1e539a23e8927f5d6a1bb56880402a6d4850f"
+  "sha": "0d3648c26913af6af461461e12a3c62c6754080c"
 }
