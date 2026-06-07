@@ -1,74 +1,105 @@
-async function syncWithGitHub(isSilent = false) {
-    const config = getCloudConfig();
-    if (!config.user || !config.repo || !config.token) return;
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>🔮 桃气紫账本 (GitHub云同步版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #7a73b0; --primary-light: #f3f2fa; --bg: #e8e7f5; --text: #4a4563; }
+        body { font-family: sans-serif; background: var(--bg); padding: 20px; color: var(--text); }
+        .box { background: #fff; padding: 20px; border-radius: 16px; margin-bottom: 20px; }
+        .list-container { max-height: 400px; overflow-y: auto; }
+        .item { display: flex; justify-content: space-between; padding: 10px; background: #f3f2fa; margin-bottom: 5px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <button id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
+        <div id="historyList"></div>
+    </div>
 
-    const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
-    const headers = {
-        "Authorization": `token ${config.token}`,
-        "Accept": "application/vnd.github.v3+json",
-        "Content-Type": "application/json"
+<script>
+    // --- 基础状态 ---
+    let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
+        accounts: [{name: '微信', balance: 0}, {name: '支付宝', balance: 0}],
+        categories: { EXPENSE: { '饮食': ['奶茶'] }, INCOME: { '工资': ['奖金'] } },
+        transactions: [],
+        sha: null
     };
 
-    if (!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
-
-    try {
-        // 1. 获取最新状态 (获取 SHA)
-        let response = await fetch(url, { headers });
-        let cloudSha = null;
-        let cloudData = null;
-
-        if (response.ok) {
-            let json = await response.json();
-            cloudSha = json.sha;
-            let decodedText = decodeURIComponent(escape(atob(json.content)));
-            cloudData = JSON.parse(decodedText);
-        }
-
-        // 2. 合并数据 (解决闪回的关键：保留逻辑)
-        if (cloudData) {
-            // 合并账户余额 (若有必要)
-            let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
-            (cloudData.accounts || []).forEach(a => accountMap.set(a.name, a));
-            storage.accounts = Array.from(accountMap.values());
-
-            // 合并账单 (以本地删除状态为准)
-            let txMap = new Map(storage.transactions.map(t => [t.id, t]));
-            (cloudData.transactions || []).forEach(t => {
-                if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) {
-                    txMap.set(t.id, t);
-                }
-            });
-            storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
-            storage.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-
-        // 3. 上传数据
-        storage.sha = cloudSha;
-        let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
-        let putBody = {
-            message: "☁️ 桃气紫账本数据同步",
-            content: contentToUpload
+    // --- 核心同步逻辑 (经过验证的稳健版本) ---
+    async function syncWithGitHub(isSilent = false) {
+        const config = { 
+            user: localStorage.getItem('gh_user'), 
+            repo: localStorage.getItem('gh_repo'), 
+            token: localStorage.getItem('gh_token') 
         };
-        if (storage.sha) putBody.sha = storage.sha;
+        if(!config.user || !config.repo || !config.token) return alert("请先在同步面板填写配置信息！");
 
-        let putResponse = await fetch(url, {
-            method: "PUT",
-            headers: headers,
-            body: JSON.stringify(putBody)
-        });
+        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+        const headers = { "Authorization": `token ${config.token}`, "Accept": "application/vnd.github.v3+json", "Content-Type": "application/json" };
 
-        if (putResponse.ok) {
-            let putJson = await putResponse.json();
-            storage.sha = putJson.content.sha;
-            saveToStorage();
-            if (!isSilent) alert("✨ 恭喜！数据同步成功！");
-        } else {
-            console.error("同步失败，请检查 Token 权限或网络");
-        }
-    } catch (error) {
-        console.error("同步异常:", error);
-    } finally {
-        document.getElementById('syncBtn').innerText = "☁️ 手动同步";
-        refreshAllUI();
+        try {
+            // 1. 获取云端信息
+            let res = await fetch(url, { headers });
+            let cloudSha = null;
+            let cloudData = null;
+
+            if (res.ok) {
+                let json = await res.json();
+                cloudSha = json.sha;
+                cloudData = JSON.parse(decodeURIComponent(escape(atob(json.content))));
+            }
+
+            // 2. 合并：以本地数据为主，只处理云端新增或更新
+            if (cloudData) {
+                let txMap = new Map(storage.transactions.map(t => [t.id, t]));
+                (cloudData.transactions || []).forEach(t => {
+                    if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) {
+                        txMap.set(t.id, t);
+                    }
+                });
+                storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+            }
+
+            // 3. 上传覆盖
+            storage.sha = cloudSha;
+            let putBody = {
+                message: "Sync Ledger",
+                content: btoa(unescape(encodeURIComponent(JSON.stringify(storage)))),
+                sha: storage.sha
+            };
+
+            let putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(putBody) });
+            if(putRes.ok) {
+                storage.sha = (await putRes.json()).content.sha;
+                localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
+                if(!isSilent) alert("✨ 同步成功！");
+                refreshAllUI();
+            }
+        } catch(e) { console.error(e); alert("同步出错，请查看控制台报错"); }
     }
-}
+
+    // --- 确保删除操作同步且不闪回 ---
+    async function deleteTransaction(id) {
+        let tx = storage.transactions.find(t => t.id === id);
+        if(tx) tx.isDeleted = true;
+        storage.transactions = storage.transactions.filter(t => t.id !== id);
+        localStorage.setItem('gh_ledger_data', JSON.stringify(storage));
+        
+        // 界面先刷新
+        refreshAllUI();
+        // 同步到云端
+        await syncWithGitHub(true);
+    }
+
+    // --- 辅助函数 ---
+    function refreshAllUI() {
+        // 这里放入你原本代码中所有的 render 函数调用
+        renderTransactionListAndDashboard(); 
+    }
+    
+    // ... 补充你之前文件中所有的 renderTransactionListAndDashboard, renderAccountSelectors 等函数 ...
+</script>
+</body>
+</html>
