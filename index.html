@@ -1,232 +1,6 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔮 桃气紫账本 (GitHub云同步版)</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root { 
-            --primary: #7a73b0;       
-            --primary-light: #f3f2fa; 
-            --primary-soft: #d3cfe5;  
-            --expense: #ff9aa2;       
-            --income: #b5ead7;        
-            --bg: #e8e7f5;            
-            --text: #4a4563;          
-        }
-        
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 25px; color: var(--text); }
-        .container { max-width: 1100px; margin: 0 auto; }
-        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        h1 { margin: 0; font-size: 26px; color: var(--primary); font-weight: 800; text-shadow: 1px 1px 0px #fff; }
-        
-        /* 看板 */
-        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 25px; }
-        .card { background: #ffffff; padding: 20px 15px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); text-align: center; border: 2px solid #fff; }
-        .card h3 { margin: 0 0 6px 0; font-size: 13px; color: #928ca9; }
-        .card p { margin: 0; font-size: 24px; font-weight: 800; }
-
-        /* 布局 */
-        .grid-layout { display: grid; grid-template-columns: 330px 1fr 330px; gap: 25px; }
-        @media (max-width: 950px) { .grid-layout { grid-template-columns: 1fr; } }
-        
-        .box { background: #ffffff; padding: 22px; border-radius: 16px; box-shadow: 0 8px 20px rgba(122, 115, 176, 0.08); height: fit-content; border: 2px solid #fff; }
-        h2 { margin-top: 0; font-size: 16px; color: var(--primary); margin-bottom: 20px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
-        h2::before { content: ""; display: inline-block; width: 6px; height: 16px; background: var(--primary); border-radius: 3px; margin-right: 8px; }
-
-        /* 表单 */
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #7f7999; }
-        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid var(--primary-light); background: var(--primary-light); border-radius: 10px; box-sizing: border-box; font-size: 13px; color: var(--text); outline: none; font-weight: 600; }
-        .form-group input:focus, .form-group select:focus { border-color: var(--primary-soft); background: #fff; }
-        
-        .btn { border: none; padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .btn:active { transform: scale(0.96); }
-        .btn-primary { background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 14px; margin-top: 5px; }
-        .btn-primary:hover { background: #6861a0; }
-        .btn-success { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
-        
-        .inline-form { display: flex; gap: 6px; margin-top: 10px; }
-
-        /* 流水列表 */
-        .list-container { max-height: 380px; overflow-y: auto; padding-right: 5px; }
-        .list-container::-webkit-scrollbar, .config-list::-webkit-scrollbar { width: 6px; }
-        .list-container::-webkit-scrollbar-thumb, .config-list::-webkit-scrollbar-thumb { background: var(--primary-soft); border-radius: 10px; }
-        
-        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--primary-light); border-radius: 12px; margin-bottom: 10px; border: 1px solid #fff; }
-        .item .cate-tag { font-size: 11px; background: #e0dbff; color: var(--primary); padding: 3px 8px; border-radius: 6px; margin-right: 5px; font-weight: 700; }
-        .item .sub-tag { font-size: 11px; background: #fff; color: #6f698a; padding: 3px 8px; border-radius: 6px; border: 1px solid #e1def2; font-weight: 600; }
-        .item .meta { font-size: 11px; color: #9c97b8; margin-top: 6px; }
-        .amt { font-weight: 800; font-size: 15px; text-shadow: 1px 1px 0 #fff; }
-        .amt.EXPENSE { color: #e56b73; }
-        .amt.INCOME { color: #43aa8b; }
-
-        /* 配置面板 */
-        .config-list { max-height: 110px; overflow-y: auto; border: 2px solid var(--primary-light); padding: 10px; border-radius: 12px; margin-bottom: 12px; font-size: 12px; background: var(--primary-light); }
-        .config-item { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #dedae8; align-items: center; font-weight: 600; }
-        .del-btn { color: #ff9aa2; cursor: pointer; font-weight: 800; font-size: 16px; }
-        .chart-wrapper { padding: 10px; background: var(--primary-light); border-radius: 14px; margin-top: 20px; border: 1px solid #fff; }
-        
-        /* 折叠区 */
-        .collapsible-content { display: none; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="header-bar">
-        <h1>🔮 缘の账本</h1>
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-success" id="syncBtn" onclick="syncWithGitHub()">☁️ 手动同步</button>
-            <button class="btn btn-success" onclick="exportToExcel()">导出备份 🌸</button>
-        </div>
-    </div>
-
-    <div class="dashboard">
-        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥0.00</p></div>
-        <div class="card"><h3>本期收入鸭</h3><p id="totalIncome" style="color:#43aa8b">¥0.00</p></div>
-        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥0.00</p></div>
-    </div>
-
-    <div class="grid-layout">
-        <div class="box">
-            <h2>记一笔小账</h2>
-            <form id="ledgerForm">
-                <div class="form-group">
-                    <label>账目方向</label>
-                    <select id="txType" onchange="renderCategoryCascade()">
-                        <option value="EXPENSE">🌸 支出钱钱</option>
-                        <option value="INCOME">💰 收入钱钱</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>交易金额 (元)</label>
-                    <input type="number" id="txAmount" step="0.01" required placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>一级大类</label>
-                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select>
-                </div>
-                <div class="form-group">
-                    <label>二级细分类</label>
-                    <select id="txSubCate"></select>
-                </div>
-                <div class="form-group">
-                    <label>支付/收款账户</label>
-                    <select id="txAccount"></select>
-                </div>
-                <div class="form-group">
-                    <label>记账日期</label>
-                    <input type="date" id="txDate" required>
-                </div>
-                <div class="form-group">
-                    <label>备忘小树洞</label>
-                    <input type="text" id="txRemark" placeholder="写点什么好呢...">
-                </div>
-                <button type="submit" class="btn btn-primary">打包保存起来 ✨</button>
-            </form>
-        </div>
-
-        <div class="box">
-            <h2>账目流水日记本</h2>
-            <div class="list-container" id="historyList"></div>
-            <div class="chart-wrapper">
-                <canvas id="analyticsChart" height="120"></canvas>
-            </div>
-        </div>
-
-        <div class="box">
-            <h2>小金库账户管理</h2>
-            <div class="config-list" id="accountConfigList"></div>
-            <div class="inline-form">
-                <input type="text" id="newAccountName" placeholder="新账户名">
-                <input type="number" id="newAccountInit" placeholder="初始" style="width:65px;">
-                <button class="btn btn-primary" style="width:40px; padding:0;" onclick="addCustomAccount()">+</button>
-            </div>
-
-            <h2 style="margin-top: 20px;">自定义花销分类</h2>
-            <div class="form-group">
-                <select id="configType" onchange="renderConfigCateCascade()">
-                    <option value="EXPENSE">修改支出项</option>
-                    <option value="INCOME">修改收入项</option>
-                </select>
-            </div>
-            <div class="config-list" id="cateConfigList"></div>
-            <div class="inline-form">
-                <input type="text" id="newPrimaryName" placeholder="新增主大类">
-                <button class="btn btn-primary" style="width:65px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
-            </div>
-            <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:6px; margin-top:6px;">
-                <select id="configPrimarySelect" style="width:40%;"></select>
-                <input type="text" id="newSubName" placeholder="新二级子类" style="width:45%;">
-                <button class="btn btn-primary" style="width:45px; padding:0; font-size:12px;" onclick="addSubCategory()">+</button>
-            </div>
-
-            <h2 style="margin-top: 20px; color: #a389d4;" onclick="toggleSyncPanel()">☁️ 多端同步小雷达 <span>[展开/收起]</span></h2>
-            <div id="syncPanel" class="collapsible-content">
-                <div class="form-group">
-                    <label>GitHub 用户名</label>
-                    <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
-                </div>
-                <div class="form-group">
-                    <label>仓库名称</label>
-                    <input type="text" id="ghRepo" placeholder="例如: my-purple-ledger" onchange="saveCloudConfig()">
-                </div>
-                <div class="form-group">
-                    <label>你的私人 Token</label>
-                    <input type="password" id="ghToken" placeholder="github_pat_..." onchange="saveCloudConfig()">
-                </div>
-                <p style="font-size: 11px; color:#9c97b8; margin:0;">填好后电脑/手机打开都能完美自动对账互通啦 🌟</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    let storage = JSON.parse(localStorage.getItem('gh_ledger_data')) || {
-        accounts: [{name: '微信支付', balance: 0}, {name: '支付宝', balance: 0}, {name: '现金', balance: 0}],
-        categories: {
-            EXPENSE: { '餐饮美食': ['买奶茶 🥤', '开心火锅 🍲'], '休闲娱乐': ['猫咖体验 🐱'] },
-            INCOME: { '日常兼职': ['副业补贴'], '生活福利': ['手气红包'] }
-        },
-        transactions: [],
-        sha: null
-    };
-
-    let chartInstance = null;
-
-    window.onload = function() {
-        document.getElementById('txDate').value = new Date().toISOString().split('T')[0];
-        loadCloudConfig();
-        refreshAllUI();
-        if(getCloudConfig().token) { syncWithGitHub(true); }
-    };
-
-    function toggleSyncPanel() {
-        const panel = document.getElementById('syncPanel');
-        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
-    }
-
-    function saveToStorage() { localStorage.setItem('gh_ledger_data', JSON.stringify(storage)); }
-
-    function loadCloudConfig() {
-        document.getElementById('ghUser').value = localStorage.getItem('gh_user') || '';
-        document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
-        document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
-    }
-    function saveCloudConfig() {
-        localStorage.setItem('gh_user', document.getElementById('ghUser').value.trim());
-        localStorage.setItem('gh_repo', document.getElementById('ghRepo').value.trim());
-        localStorage.setItem('gh_token', document.getElementById('ghToken').value.trim());
-    }
-    function getCloudConfig() {
-        return { user: localStorage.getItem('gh_user'), repo: localStorage.getItem('gh_repo'), token: localStorage.getItem('gh_token') };
-    }
-
-    async function syncWithGitHub(isSilent = false) {
+async function syncWithGitHub(isSilent = false) {
     const config = getCloudConfig();
-    if(!config.user || !config.repo || !config.token) return;
+    if (!config.user || !config.repo || !config.token) return;
 
     const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
     const headers = {
@@ -235,8 +9,10 @@
         "Content-Type": "application/json"
     };
 
+    if (!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
+
     try {
-        // 步骤1：先获取云端最新文件信息，拿到正确的 SHA
+        // 1. 获取最新状态 (获取 SHA)
         let response = await fetch(url, { headers });
         let cloudSha = null;
         let cloudData = null;
@@ -248,26 +24,32 @@
             cloudData = JSON.parse(decodedText);
         }
 
-        // 步骤2：如果有云端数据，进行合并（解决闪回）
+        // 2. 合并数据 (解决闪回的关键：保留逻辑)
         if (cloudData) {
+            // 合并账户余额 (若有必要)
+            let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
+            (cloudData.accounts || []).forEach(a => accountMap.set(a.name, a));
+            storage.accounts = Array.from(accountMap.values());
+
+            // 合并账单 (以本地删除状态为准)
             let txMap = new Map(storage.transactions.map(t => [t.id, t]));
-            // 处理云端传来的更新，重点是排除被标记为已删除的记录
             (cloudData.transactions || []).forEach(t => {
                 if (!txMap.has(t.id) || (t.updatedAt > (txMap.get(t.id)?.updatedAt || 0))) {
                     txMap.set(t.id, t);
                 }
             });
             storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
+            storage.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
         }
 
-        // 步骤3：更新 SHA 并上传
+        // 3. 上传数据
         storage.sha = cloudSha;
         let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
         let putBody = {
-            message: "☁️ 同步更新",
+            message: "☁️ 桃气紫账本数据同步",
             content: contentToUpload
         };
-        if(storage.sha) putBody.sha = storage.sha; 
+        if (storage.sha) putBody.sha = storage.sha;
 
         let putResponse = await fetch(url, {
             method: "PUT",
@@ -275,233 +57,18 @@
             body: JSON.stringify(putBody)
         });
 
-        if(putResponse.ok) {
+        if (putResponse.ok) {
             let putJson = await putResponse.json();
             storage.sha = putJson.content.sha;
             saveToStorage();
-            if(!isSilent) console.log("✨ 同步成功");
+            if (!isSilent) alert("✨ 恭喜！数据同步成功！");
+        } else {
+            console.error("同步失败，请检查 Token 权限或网络");
         }
     } catch (error) {
-        console.error("同步出错:", error);
+        console.error("同步异常:", error);
+    } finally {
+        document.getElementById('syncBtn').innerText = "☁️ 手动同步";
+        refreshAllUI();
     }
 }
-
-        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
-        const headers = {
-            "Authorization": `token ${config.token}`,
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json"
-        };
-
-        if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在对账...";
-
-        try {
-            let response = await fetch(url, { headers });
-            let cloudData = null;
-            let cloudSha = null;
-
-            if (response.ok) {
-                let json = await response.json();
-                cloudSha = json.sha;
-                let decodedText = decodeURIComponent(escape(atob(json.content)));
-                cloudData = JSON.parse(decodedText);
-            }
-
-            if (cloudData) {
-                let accountMap = new Map(storage.accounts.map(a => [a.name, a]));
-                cloudData.accounts.forEach(a => accountMap.set(a.name, a));
-                storage.accounts = Array.from(accountMap.values());
-
-                let txMap = new Map(storage.transactions.map(t => [t.id, t]));
-                cloudData.transactions.forEach(t => {
-                    if (!txMap.has(t.id) || (t.updatedAt && t.updatedAt > (txMap.get(t.id).updatedAt || 0))) {
-                        txMap.set(t.id, t);
-                    }
-                });
-                storage.transactions = Array.from(txMap.values()).filter(t => !t.isDeleted);
-                storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
-            }
-
-            storage.sha = cloudSha;
-            saveToStorage();
-            refreshAllUI();
-
-            let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
-            let putBody = {
-                message: "☁️ 桃气紫账本数据自动增量同步",
-                content: contentToUpload
-            };
-            if(storage.sha) putBody.sha = storage.sha;
-
-            let putResponse = await fetch(url, {
-                method: "PUT",
-                headers: headers,
-                body: JSON.stringify(putBody)
-            });
-
-            if(putResponse.ok) {
-                let putJson = await putResponse.json();
-                storage.sha = putJson.content.sha;
-                saveToStorage();
-                if(!isSilent) alert("✨ 恭喜！手机电脑数据已同步成功！");
-            } else {
-                if(!isSilent) alert("回传云端时遇到点小拥堵，稍后重试下呢~");
-            }
-
-        } catch (error) {
-            console.error(error);
-            if(!isSilent) alert("网络连接不畅，账目暂时保存在本地缓存中~");
-        } finally {
-            document.getElementById('syncBtn').innerText = "☁️ 手动同步";
-        }
-    }
-
-    function refreshAllUI() { renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard(); }
-    function renderAccountSelectors() { document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join(''); }
-    function renderCategoryCascade() {
-        const type = document.getElementById('txType').value;
-        const primaries = Object.keys(storage.categories[type]);
-        document.getElementById('txPrimaryCate').innerHTML = primaries.map(p => `<option value="${p}">${p}</option>`).join('');
-        renderSubCategoryCascade();
-    }
-    function renderSubCategoryCascade() {
-        const type = document.getElementById('txType').value;
-        const priValue = document.getElementById('txPrimaryCate').value;
-        if (!priValue) { document.getElementById('txSubCate').innerHTML = ''; return; }
-        const subs = storage.categories[type][priValue] || [];
-        document.getElementById('txSubCate').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
-    }
-    function renderConfigLists() {
-        document.getElementById('accountConfigList').innerHTML = storage.accounts.map((a, i) => `
-            <div class="config-item"><span>💰 ${a.name} (￥${a.balance})</span><span class="del-btn" onclick="deleteAccount(${i})">×</span></div>
-        `).join('');
-
-        const type = document.getElementById('configType').value;
-        let html = ''; const data = storage.categories[type];
-        for (let pri in data) {
-            html += `<div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ ${pri} <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory('${type}','${pri}')">[删]</span></div>`;
-            data[pri].forEach((sub, idx) => {
-                html += `<div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ ${sub}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${pri}', ${idx})">×</span></div>`;
-            });
-        }
-        document.getElementById('cateConfigList').innerHTML = html;
-        document.getElementById('configPrimarySelect').innerHTML = Object.keys(data).map(p => `<option value="${p}">${p}</option>`).join('');
-    }
-    function renderConfigCateCascade() { renderConfigLists(); }
-    function addCustomAccount() {
-        const name = document.getElementById('newAccountName').value.trim();
-        const initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
-        if(!name) return; storage.accounts.push({name: name, balance: initBal});
-        saveToStorage(); refreshAllUI(); syncWithGitHub(true);
-        document.getElementById('newAccountName').value = ''; document.getElementById('newAccountInit').value = '';
-    }
-    function deleteAccount(index) { storage.accounts.splice(index, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-    function addPrimaryCategory() {
-        const type = document.getElementById('configType').value;
-        const name = document.getElementById('newPrimaryName').value.trim();
-        if(!name || storage.categories[type][name]) return;
-        storage.categories[type][name] = []; saveToStorage(); refreshAllUI(); syncWithGitHub(true);
-        document.getElementById('newPrimaryName').value = '';
-    }
-    function deletePrimaryCategory(type, pri) { delete storage.categories[type][pri]; saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-    function addSubCategory() {
-        const type = document.getElementById('configType').value;
-        const pri = document.getElementById('configPrimarySelect').value;
-        const subName = document.getElementById('newSubName').value.trim();
-        if(!pri || !subName || storage.categories[type][pri].includes(subName)) return;
-        storage.categories[type][pri].push(subName); saveToStorage(); refreshAllUI(); syncWithGitHub(true);
-        document.getElementById('newSubName').value = '';
-    }
-    function deleteSubCategory(type, pri, idx) { storage.categories[type][pri].splice(idx, 1); saveToStorage(); refreshAllUI(); syncWithGitHub(true); }
-    document.getElementById('ledgerForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const item = {
-            id: 'TX' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-            type: document.getElementById('txType').value,
-            amount: parseFloat(document.getElementById('txAmount').value),
-            primaryCate: document.getElementById('txPrimaryCate').value,
-            subCate: document.getElementById('txSubCate').value || '日常',
-            account: document.getElementById('txAccount').value,
-            date: document.getElementById('txDate').value,
-            remark: document.getElementById('txRemark').value || '贴心留白',
-            updatedAt: Date.now(),
-            isDeleted: false
-        };
-        storage.transactions.unshift(item);
-        saveToStorage(); refreshAllUI();
-        document.getElementById('txAmount').value = ''; document.getElementById('txRemark').value = '';
-        syncWithGitHub(true);
-    });
-async function deleteTransaction(id) {
-    let tx = storage.transactions.find(t => t.id === id);
-    if(tx) {
-        tx.isDeleted = true;
-        tx.updatedAt = Date.now();
-    }
-    // 立即从本地数组移除，确保界面立刻消失
-    storage.transactions = storage.transactions.filter(t => t.id !== id);
-    
-    saveToStorage();
-    refreshAllUI();
-    
-    // 强制等待同步完成，防止旧版本覆盖
-    await syncWithGitHub(true);
-}
-    function renderTransactionListAndDashboard() {
-        let incomeSum = 0, expenseSum = 0; let html = ''; let chartData = {};
-        let currentAccountBalances = {};
-        storage.accounts.forEach(a => currentAccountBalances[a.name] = a.balance);
-        [...storage.transactions].reverse().forEach(t => {
-            if(t.type === 'INCOME') { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] += t.amount; }
-            else { if(currentAccountBalances[t.account] !== undefined) currentAccountBalances[t.account] -= t.amount; }
-        });
-        storage.transactions.forEach(t => {
-            if (t.type === 'INCOME') incomeSum += t.amount;
-            else { expenseSum += t.amount; chartData[t.primaryCate] = (chartData[t.primaryCate] || 0) + t.amount; }
-            const sign = t.type === 'INCOME' ? '＋' : '－';
-            html += `
-                <div class="item">
-                    <div>
-                        <div><span class="cate-tag">${t.primaryCate}</span><span class="sub-tag">${t.subCate}</span></div>
-                        <div class="meta">📅 ${t.date} | 👛 ${t.account} | 📝 ${t.remark}</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div class="amt ${t.type}">${sign}¥${t.amount.toFixed(2)}</div>
-                        <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction('${t.id}')">擦除</span>
-                    </div>
-                </div>
-            `;
-        });
-        let netAssetCalculated = Object.values(currentAccountBalances).reduce((a, b) => a + b, 0);
-        document.getElementById('totalIncome').innerText = `¥${incomeSum.toFixed(2)}`;
-        document.getElementById('totalExpense').innerText = `¥${expenseSum.toFixed(2)}`;
-        document.getElementById('netAsset').innerText = `¥${netAssetCalculated.toFixed(2)}`;
-        document.getElementById('historyList').innerHTML = html || '<p style="color:#9c97b8; text-align:center; padding:20px;">小本子空空如也 ⭐️</p>';
-        renderChart(chartData);
-    }
-    function renderChart(chartData) {
-        const ctx = document.getElementById('analyticsChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
-        const labels = Object.keys(chartData);
-        if(labels.length === 0) return;
-        chartInstance = new Chart(ctx, {
-            type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: Object.values(chartData), backgroundColor: ['#ff9aa2', '#ffb7b2', '#ffdac1', '#e2f0cb', '#b5ead7', '#c7ceea'] }] },
-            options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#4a4563', font: { weight: 'bold' } } } } }
-        });
-    }
-    function exportToExcel() {
-        if(storage.transactions.length === 0) { alert('没有流水数据可以导出哦！'); return; }
-        let csvContent = "\uFEFF流水单号,记账日期,流水类型,主分类,子细分,结算账户,交易金额,备注小记\r\n";
-        storage.transactions.forEach(t => {
-            csvContent += [t.id, t.date, t.type === 'EXPENSE' ? '支出' : '收入', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), `"${t.remark.replace(/"/g, '""')}"`].join(",") + "\r\n";
-        });
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url); link.setAttribute("download", `桃气紫账本_备份_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-</script>
-</body>
-</html>
