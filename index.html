@@ -242,67 +242,52 @@
     }
 
 async function syncWithGitHub(isSilent = false) {
-        const config = getCloudConfig();
-        if(!config.user || !config.repo || !config.token) {
-            if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
-            return;
-        }
-
-        const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
-        const headers = {
-            "Authorization": `token ${config.token}`,
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json"
-        };
-
-        if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在同步...";
-
-        try {
-            let response = await fetch(url, { headers });
-            let cloudData = null;
-
-            if (response.ok) {
-                let json = await response.json();
-                storage.sha = json.sha;
-                let decodedText = decodeURIComponent(escape(atob(json.content)));
-                cloudData = JSON.parse(decodedText);
-            }
-
-            if (cloudData) {
-                // 合并逻辑：保留本地未删除的，添加云端新增的
-                let localIds = new Set(storage.transactions.map(t => t.id));
-                cloudData.transactions.forEach(t => {
-                    // 如果云端有记录且本地没有，且未被标记删除，则同步到本地
-                    if (!localIds.has(t.id) && !t.isDeleted) {
-                        storage.transactions.push(t);
-                    }
-                });
-                storage.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
-            }
-
-            saveToStorage();
-            refreshAllUI();
-
-            // 上传最新数据到云端
-            let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
-            let putBody = {
-                message: "☁️ 桃气紫账本数据自动同步",
-                content: contentToUpload
-            };
-            if(storage.sha) putBody.sha = storage.sha;
-
-            await fetch(url, {
-                method: "PUT",
-                headers: headers,
-                body: JSON.stringify(putBody)
-            });
-        } catch (error) {
-            console.error("同步出错:", error);
-        } finally {
-            document.getElementById('syncBtn').innerText = "☁️ 手动同步";
-        }
+    const config = getCloudConfig();
+    if(!config.user || !config.repo || !config.token) {
+        if(!isSilent) alert("请先在右下角填好 GitHub 配置哦！");
+        return;
     }
 
+    const url = `https://api.github.com/repos/${config.user}/${config.repo}/contents/ledger_db.json`;
+    const headers = {
+        "Authorization": `token ${config.token}`,
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    };
+
+    if(!isSilent) document.getElementById('syncBtn').innerText = "⚡ 正在同步...";
+
+    try {
+        // 1. 获取云端信息
+        let response = await fetch(url, { headers });
+        if (response.ok) {
+            let json = await response.json();
+            storage.sha = json.sha; 
+        } else {
+            storage.sha = null; 
+        }
+
+        // 2. 直接将本地当前状态覆盖上传到云端
+        let contentToUpload = btoa(unescape(encodeURIComponent(JSON.stringify(storage, null, 2))));
+        let putBody = {
+            message: "☁️ 桃气紫账本同步更新",
+            content: contentToUpload
+        };
+        if(storage.sha) putBody.sha = storage.sha;
+
+        await fetch(url, {
+            method: "PUT",
+            headers: headers,
+            body: JSON.stringify(putBody)
+        });
+        
+        refreshAllUI();
+    } catch (error) {
+        console.error("同步出错:", error);
+    } finally {
+        document.getElementById('syncBtn').innerText = "☁️ 手动同步";
+    }
+}
         
     function refreshAllUI() { renderAccountSelectors(); renderCategoryCascade(); renderConfigLists(); renderTransactionListAndDashboard(); }
     function renderAccountSelectors() { document.getElementById('txAccount').innerHTML = storage.accounts.map(a => `<option value="${a.name}">${a.name}</option>`).join(''); }
