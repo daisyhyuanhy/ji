@@ -399,7 +399,7 @@ function deleteTransaction(id) {
                         <div class="meta">📅 ${t.date} | 👛 ${t.account} | 📝 ${t.remark}</div>
                     </div>
                     <div style="text-align:right;">
-                        <div class="amt ${t.type}">${sign}¥${t.amount.toFixed(2)}</div>
+                        <div class="amt ${t.type}">${sign}¥${(t.amount || 0).toFixed(2)}</div>
                         <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction('${t.id}')">擦除</span>
                     </div>
                 </div>
