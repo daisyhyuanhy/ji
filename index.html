@@ -4,14 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>🍑 桃气紫账本 | 云同步灵境版</title>
-    <!-- 使用更稳定的 Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            transition: all 0.2s ease;
         }
 
         :root {
@@ -24,14 +22,12 @@
             --text: #4a4563;
             --card-white: #ffffff;
             --shadow-sm: 0 8px 20px rgba(122, 115, 176, 0.08);
-            --border-radius-card: 24px;
-            --border-radius-elem: 16px;
         }
 
         body {
             background: var(--bg);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
-            padding: 20px 20px 40px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            padding: 20px;
             color: var(--text);
         }
 
@@ -40,7 +36,6 @@
             margin: 0 auto;
         }
 
-        /* 头部区域 */
         .header-bar {
             display: flex;
             flex-wrap: wrap;
@@ -58,16 +53,11 @@
             -webkit-background-clip: text;
             color: transparent;
             font-weight: 800;
-            letter-spacing: -0.3px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
 
         .btn-group {
             display: flex;
             gap: 12px;
-            flex-wrap: wrap;
         }
 
         .btn {
@@ -78,13 +68,10 @@
             font-size: 13px;
             cursor: pointer;
             background: white;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
             transition: 0.2s;
-            font-family: inherit;
         }
 
         .btn-success {
-            background: white;
             border: 1.5px solid var(--primary);
             color: var(--primary);
         }
@@ -92,21 +79,17 @@
         .btn-success:hover {
             background: var(--primary);
             color: white;
-            transform: translateY(-2px);
         }
 
         .btn-primary {
             background: var(--primary);
             color: white;
-            box-shadow: 0 4px 12px rgba(122, 115, 176, 0.3);
         }
 
         .btn-primary:hover {
             background: #6861a0;
-            transform: translateY(-1px);
         }
 
-        /* 三卡片仪表板 */
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -116,20 +99,16 @@
 
         .card {
             background: var(--card-white);
-            border-radius: var(--border-radius-card);
-            padding: 20px 18px;
+            border-radius: 24px;
+            padding: 20px;
             box-shadow: var(--shadow-sm);
             text-align: center;
-            backdrop-filter: blur(2px);
-            border: 1px solid rgba(255,255,255,0.6);
         }
 
         .card h3 {
             font-size: 13px;
-            letter-spacing: 1px;
             color: #928ca9;
             margin-bottom: 8px;
-            font-weight: 600;
         }
 
         .card p {
@@ -138,7 +117,6 @@
             margin: 0;
         }
 
-        /* 三列网格 */
         .grid-layout {
             display: grid;
             grid-template-columns: 340px 1fr 340px;
@@ -148,7 +126,6 @@
         @media (max-width: 1000px) {
             .grid-layout {
                 grid-template-columns: 1fr;
-                gap: 24px;
             }
         }
 
@@ -157,7 +134,6 @@
             border-radius: 28px;
             padding: 24px;
             box-shadow: var(--shadow-sm);
-            border: 1px solid #ffffffaa;
         }
 
         h2 {
@@ -171,13 +147,6 @@
             cursor: pointer;
         }
 
-        h2::before {
-            content: "🌸";
-            font-size: 1.2rem;
-            font-weight: normal;
-        }
-
-        /* 表单 */
         .form-group {
             margin-bottom: 16px;
         }
@@ -197,7 +166,6 @@
             border: 2px solid transparent;
             border-radius: 20px;
             font-size: 14px;
-            font-weight: 500;
             color: var(--text);
             outline: none;
         }
@@ -207,25 +175,10 @@
             border-color: var(--primary-soft);
         }
 
-        /* 流水列表 */
         .list-container {
             max-height: 380px;
             overflow-y: auto;
             padding-right: 6px;
-        }
-
-        .list-container::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        .list-container::-webkit-scrollbar-track {
-            background: #e2def5;
-            border-radius: 10px;
-        }
-
-        .list-container::-webkit-scrollbar-thumb {
-            background: var(--primary-soft);
-            border-radius: 10px;
         }
 
         .item {
@@ -237,12 +190,6 @@
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            transition: all 0.2s;
-            border: 1px solid white;
-        }
-
-        .item-left {
-            flex: 1;
         }
 
         .cate-tag {
@@ -261,8 +208,6 @@
             padding: 4px 10px;
             border-radius: 30px;
             font-size: 11px;
-            font-weight: 600;
-            color: #6f698a;
         }
 
         .meta-info {
@@ -274,7 +219,6 @@
         .amt {
             font-weight: 800;
             font-size: 18px;
-            letter-spacing: -0.2px;
         }
 
         .amt.EXPENSE {
@@ -297,7 +241,6 @@
             margin-top: 6px;
         }
 
-        /* 配置面板 */
         .config-list {
             background: var(--primary-light);
             border-radius: 20px;
@@ -351,37 +294,13 @@
             display: none;
             margin-top: 16px;
         }
-
-        .badge-sync {
-            font-size: 11px;
-            background: #edeaff;
-            border-radius: 20px;
-            padding: 4px 12px;
-        }
-
-        button {
-            background: none;
-            border: none;
-        }
-
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .error-msg {
-            color: #e56b73;
-            font-size: 12px;
-            margin-top: 8px;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header-bar">
-        <h1>🍑 桃气紫账本 · 灵境云迹</h1>
+        <h1>🍑 桃气紫账本</h1>
         <div class="btn-group">
             <button class="btn btn-success" id="syncBtn">☁️ 同步云端</button>
             <button class="btn btn-success" id="exportBtn">🌸 导出CSV</button>
@@ -395,7 +314,6 @@
     </div>
 
     <div class="grid-layout">
-        <!-- 左边记账表单 -->
         <div class="box">
             <h2>记一笔小账</h2>
             <form id="ledgerForm">
@@ -434,7 +352,6 @@
             </form>
         </div>
 
-        <!-- 中间流水+图表 -->
         <div class="box">
             <h2>📖 流水日记本</h2>
             <div class="list-container" id="historyList"></div>
@@ -443,14 +360,13 @@
             </div>
         </div>
 
-        <!-- 右侧高级配置 & 云同步 -->
         <div class="box">
             <h2>🏦 账户管家</h2>
             <div class="config-list" id="accountConfigList"></div>
             <div class="inline-flex">
                 <input type="text" id="newAccountName" placeholder="新账户名">
                 <input type="number" id="newAccountInit" placeholder="初始余额" style="width:80px;">
-                <button class="btn btn-primary" onclick="addCustomAccount()" style="padding:0 12px;">+</button>
+                <button class="btn btn-primary" onclick="addCustomAccount()">+</button>
             </div>
 
             <h2 style="margin-top: 24px;">🗂️ 自定分类</h2>
@@ -463,15 +379,15 @@
             <div class="config-list" id="cateConfigList"></div>
             <div class="inline-flex">
                 <input type="text" id="newPrimaryName" placeholder="新主类名">
-                <button class="btn btn-primary" onclick="addPrimaryCategory()" style="padding:0 16px;">➕主类</button>
+                <button class="btn btn-primary" onclick="addPrimaryCategory()">➕主类</button>
             </div>
             <div class="inline-flex">
                 <select id="configPrimarySelect" style="flex:2;"></select>
                 <input type="text" id="newSubName" placeholder="子类名称" style="flex:2;">
-                <button class="btn btn-primary" onclick="addSubCategory()" style="padding:0 12px;">+子类</button>
+                <button class="btn btn-primary" onclick="addSubCategory()">+子类</button>
             </div>
 
-            <h2 style="margin-top: 24px;" onclick="toggleSyncPanel()">☁️ 多端同步 · 桃气漫游 ⏷</h2>
+            <h2 style="margin-top: 24px;" onclick="toggleSyncPanel()">☁️ 多端同步 ⏷</h2>
             <div id="syncPanel" class="collapsible-content">
                 <div class="form-group">
                     <label>GitHub 用户名</label>
@@ -482,18 +398,17 @@
                     <input type="text" id="ghRepo" placeholder="purple-ledger">
                 </div>
                 <div class="form-group">
-                    <label>🔑 Personal Access Token</label>
+                    <label>🔑 Token</label>
                     <input type="password" id="ghToken" placeholder="ghp_xxxx">
                 </div>
-                <p style="font-size: 12px; color:#7a73b0;">💡 设置后自动跨设备同步，桃花运加持数据不丢失</p>
-                <div id="syncStatus" class="error-msg"></div>
+                <p style="font-size: 12px; color:#7a73b0;">💡 设置后自动跨设备同步</p>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // ---------- 存储结构 ----------
+    // 存储数据
     let storage = JSON.parse(localStorage.getItem('gh_ledger_data_v2')) || {
         accounts: [
             { name: "微信支付", balance: 0 },
@@ -516,12 +431,12 @@
 
     let chartInstance = null;
 
-    // 辅助函数
+    // 保存到本地
     function persist() {
         localStorage.setItem('gh_ledger_data_v2', JSON.stringify(storage));
     }
 
-    // 更新账户余额快照
+    // 重新计算余额
     function recalcAccountBalances() {
         let balanceMap = new Map();
         storage.accounts.forEach(acc => balanceMap.set(acc.name, acc.balance));
@@ -540,7 +455,7 @@
         persist();
     }
 
-    // 全量刷新UI
+    // 刷新所有UI
     function refreshAll() {
         renderAccountSelect();
         renderCategoryCascade();
@@ -574,7 +489,7 @@
         const accContainer = document.getElementById('accountConfigList');
         accContainer.innerHTML = storage.accounts.map((acc, idx) => `
             <div class="config-item">
-                <span>💰 ${escapeHtml(acc.name)}  ¥${acc.balance.toFixed(2)}</span>
+                <span>💰 ${escapeHtml(acc.name)} ¥${acc.balance.toFixed(2)}</span>
                 <span class="del-btn" onclick="deleteAccount(${idx})">✖️</span>
             </div>
         `).join('');
@@ -588,7 +503,7 @@
                 cateHtml += `<div class="config-item" style="padding-left:16px;"><span>└ ${escapeHtml(sub)}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${escapeHtml(pri)}',${idx})">✖️</span></div>`;
             });
         }
-        document.getElementById('cateConfigList').innerHTML = cateHtml || '<div class="config-item">暂无分类，新增吧～</div>';
+        document.getElementById('cateConfigList').innerHTML = cateHtml || '<div class="config-item">暂无分类</div>';
         const primarySelect = document.getElementById('configPrimarySelect');
         primarySelect.innerHTML = Object.keys(cateData).map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
     }
@@ -630,7 +545,7 @@
         document.getElementById('totalIncome').innerHTML = `¥${incomeSum.toFixed(2)}`;
         document.getElementById('totalExpense').innerHTML = `¥${expenseSum.toFixed(2)}`;
         document.getElementById('netAsset').innerHTML = `¥${totalNet.toFixed(2)}`;
-        document.getElementById('historyList').innerHTML = html || '<div style="padding:24px; text-align:center; color:#aaa;">🍃 暂无流水，记一笔开始～</div>';
+        document.getElementById('historyList').innerHTML = html || '<div style="padding:24px; text-align:center;">🍃 暂无流水</div>';
         renderChart(chartAgg);
     }
 
@@ -645,35 +560,32 @@
         chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: { labels: labels, datasets: [{ data: Object.values(data), backgroundColor: ['#ff9aa2', '#ffb7b2', '#ffdac1', '#c7ceea', '#b5ead7', '#d1b3ff'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
-    // 增删改逻辑
+    // 增删改函数
     window.deleteTransaction = function(id) {
         storage.transactions = storage.transactions.filter(t => t.id !== id);
         persist();
         refreshAll();
-        autoSyncBackground();
     };
 
     window.deleteAccount = function(idx) {
-        if(storage.accounts.length <= 1) { alert("至少保留一个可爱的小金库吧 💕"); return; }
+        if(storage.accounts.length <= 1) { alert("至少保留一个账户"); return; }
         storage.accounts.splice(idx, 1);
         persist();
         refreshAll();
-        autoSyncBackground();
     };
 
     window.addCustomAccount = function() {
         let name = document.getElementById('newAccountName').value.trim();
         let initBal = parseFloat(document.getElementById('newAccountInit').value) || 0;
         if(!name) return;
-        if(storage.accounts.find(a => a.name === name)) { alert("账户已存在～"); return; }
+        if(storage.accounts.find(a => a.name === name)) { alert("账户已存在"); return; }
         storage.accounts.push({ name: name, balance: initBal });
         persist();
         refreshAll();
-        autoSyncBackground();
         document.getElementById('newAccountName').value = '';
         document.getElementById('newAccountInit').value = '';
     };
@@ -683,20 +595,18 @@
         const name = document.getElementById('newPrimaryName').value.trim();
         if(!name) return;
         if(!storage.categories[type]) storage.categories[type] = {};
-        if(storage.categories[type][name]) { alert("主类已经存在"); return; }
+        if(storage.categories[type][name]) { alert("主类已存在"); return; }
         storage.categories[type][name] = ["默认"];
         persist();
         refreshAll();
-        autoSyncBackground();
         document.getElementById('newPrimaryName').value = '';
     };
 
     window.deletePrimaryCategory = function(type, pri) {
-        if(confirm(`删除 "${pri}" 整个类别？下属流水仍在但分类会显示为"已删除"`)) {
+        if(confirm(`删除 "${pri}"？`)) {
             delete storage.categories[type][pri];
             persist();
             refreshAll();
-            autoSyncBackground();
         }
     };
 
@@ -705,7 +615,6 @@
         if(storage.categories[type][pri].length === 0) storage.categories[type][pri].push("其他");
         persist();
         refreshAll();
-        autoSyncBackground();
     };
 
     window.addSubCategory = function() {
@@ -717,8 +626,17 @@
         storage.categories[type][pri].push(subName);
         persist();
         refreshAll();
-        autoSyncBackground();
         document.getElementById('newSubName').value = '';
+    };
+
+    // 切换同步面板
+    window.toggleSyncPanel = function() {
+        const panel = document.getElementById('syncPanel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
     };
 
     // 表单提交
@@ -735,26 +653,15 @@
             remark: document.getElementById('txRemark').value || '✨ 桃气笔记',
             updatedAt: Date.now(),
         };
-        if(isNaN(newTx.amount) || newTx.amount <= 0) { alert("金额必须是正数噢～"); return; }
+        if(isNaN(newTx.amount) || newTx.amount <= 0) { alert("金额必须是正数"); return; }
         storage.transactions.unshift(newTx);
         persist();
         refreshAll();
         document.getElementById('txAmount').value = '';
         document.getElementById('txRemark').value = '';
-        autoSyncBackground();
     });
 
-    // 切换同步面板的显示/隐藏
-    window.toggleSyncPanel = function() {
-        const panel = document.getElementById('syncPanel');
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            panel.style.display = 'block';
-        } else {
-            panel.style.display = 'none';
-        }
-    };
-
-    // ----- GitHub 同步核心 (增强错误处理)-----
+    // GitHub同步相关
     function getCloudCfg() {
         return {
             user: localStorage.getItem('gh_user') || '',
@@ -775,23 +682,16 @@
         document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
     }
 
-    async function syncWithGitHub(manual = true) {
+    async function syncWithGitHub() {
+        saveCloudInputs();
         const cfg = getCloudCfg();
-        const syncBtn = document.getElementById('syncBtn');
-        const syncStatus = document.getElementById('syncStatus');
-        
         if(!cfg.user || !cfg.repo || !cfg.token) {
-            if(manual) {
-                alert("请先填写 GitHub 配置 🍑\n\n需要：\n1. GitHub 用户名\n2. 仓库名（需提前创建）\n3. Personal Access Token (需 repo 权限)");
-                if(syncStatus) syncStatus.innerText = "⚠️ 请先填写完整的 GitHub 配置";
-            }
+            alert("请先填写 GitHub 配置");
             return;
         }
         
-        if(manual) {
-            syncBtn.innerText = "🔄 同步中...";
-            if(syncStatus) syncStatus.innerText = "⏳ 正在同步...";
-        }
+        const syncBtn = document.getElementById('syncBtn');
+        syncBtn.innerText = "🔄 同步中...";
         
         const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/ledger_purple_v2.json`;
         const headers = { 
@@ -800,61 +700,39 @@
         };
         
         try {
-            // 尝试获取远程文件
-            let cloudSha = null;
-            let remoteData = null;
             const getRes = await fetch(url, { headers });
+            let cloudSha = null;
             
-            if(getRes.status === 404) {
-                // 文件不存在，首次同步
-                if(manual && syncStatus) syncStatus.innerText = "📝 首次同步，将创建云端文件";
-            } else if(getRes.ok) {
+            if(getRes.ok) {
                 const fileJson = await getRes.json();
                 cloudSha = fileJson.sha;
                 const content = atob(fileJson.content);
-                remoteData = JSON.parse(content);
+                const remoteData = JSON.parse(content);
                 
-                // 智能合并数据
-                if(remoteData && remoteData.transactions) {
-                    const localTxMap = new Map(storage.transactions.map(t => [t.id, t]));
-                    remoteData.transactions.forEach(rtx => {
-                        let local = localTxMap.get(rtx.id);
-                        if(!local || (rtx.updatedAt && rtx.updatedAt > (local.updatedAt || 0))) {
-                            localTxMap.set(rtx.id, rtx);
-                        }
-                    });
-                    storage.transactions = Array.from(localTxMap.values()).sort((a,b) => new Date(b.date) - new Date(a.date));
-                    
-                    if(remoteData.accounts) {
-                        let accMap = new Map(storage.accounts.map(a=>[a.name,a]));
-                        remoteData.accounts.forEach(a=> accMap.set(a.name, a));
-                        storage.accounts = Array.from(accMap.values());
+                // 合并数据
+                const localTxMap = new Map(storage.transactions.map(t => [t.id, t]));
+                remoteData.transactions.forEach(rtx => {
+                    if(!localTxMap.has(rtx.id)) {
+                        localTxMap.set(rtx.id, rtx);
                     }
-                    if(remoteData.categories) {
-                        storage.categories = JSON.parse(JSON.stringify(remoteData.categories));
-                    }
-                    storage.sha = cloudSha;
-                    persist();
-                    refreshAll();
-                    if(manual && syncStatus) syncStatus.innerText = "✅ 已合并云端数据";
-                }
-            } else {
-                throw new Error(`HTTP ${getRes.status}: ${getRes.statusText}`);
+                });
+                storage.transactions = Array.from(localTxMap.values());
+                storage.sha = cloudSha;
+                persist();
+                refreshAll();
             }
             
-            // 上传本地最新数据
+            // 上传数据
             const finalContent = btoa(unescape(encodeURIComponent(JSON.stringify({ 
                 accounts: storage.accounts, 
                 categories: storage.categories, 
                 transactions: storage.transactions, 
-                version: 2,
-                lastSync: new Date().toISOString()
+                version: 2
             }, null, 2))));
             
             const putBody = { 
-                message: "🍑 紫气同步 " + new Date().toLocaleString(), 
-                content: finalContent,
-                branch: "main"
+                message: "🍑 同步数据", 
+                content: finalContent
             };
             if(storage.sha) putBody.sha = storage.sha;
             
@@ -863,43 +741,37 @@
                 const putJson = await putRes.json();
                 storage.sha = putJson.content.sha;
                 persist();
-                if(manual) {
-                    alert("✨ 云朵已收纳，数据同步完成 ✨");
-                    if(syncStatus) syncStatus.innerText = "✅ 同步成功！";
-                    setTimeout(() => { if(syncStatus) syncStatus.innerText = ""; }, 3000);
-                }
+                alert("✨ 同步成功！");
             } else {
-                const errorText = await putRes.text();
-                throw new Error(`上传失败: ${putRes.status} - ${errorText}`);
+                alert("上传失败");
             }
         } catch(err) {
-            console.error('Sync error:', err);
-            if(manual) {
-                let errorMsg = "网络连接不畅，账目暂时保存在本地缓存中~\n";
-                if(err.message.includes("Not Found")) {
-                    errorMsg = "仓库不存在或Token权限不足\n请确认：\n1. 仓库已创建\n2. Token 有 repo 权限\n3. 仓库名正确";
-                } else if(err.message.includes("401")) {
-                    errorMsg = "Token 无效或已过期，请重新生成";
-                }
-                alert(errorMsg);
-                if(syncStatus) syncStatus.innerText = "❌ " + errorMsg.split('\n')[0];
-            }
+            console.error(err);
+            alert("同步失败：" + err.message);
         } finally {
-            if(manual) {
-                syncBtn.innerText = "☁️ 同步云端";
-                setTimeout(() => { if(syncStatus && syncStatus.innerText === "⏳ 正在同步...") syncStatus.innerText = ""; }, 2000);
-            }
+            syncBtn.innerText = "☁️ 同步云端";
         }
     }
 
-    function autoSyncBackground() { 
-        const cfg = getCloudCfg();
-        if(cfg.user && cfg.repo && cfg.token) {
-            syncWithGitHub(false).catch(e => console.log("后台同步失败:", e));
+    function exportToCSV() {
+        if(storage.transactions.length === 0) { 
+            alert("暂无数据"); 
+            return; 
         }
+        let csvRows = [["ID","日期","类型","主分类","子分类","账户","金额","备注"]];
+        storage.transactions.forEach(t => {
+            csvRows.push([t.id, t.date, t.type === 'INCOME' ? '收入' : '支出', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), t.remark]);
+        });
+        const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv"});
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `账本_${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
     }
 
-    // 辅助转义
     function escapeHtml(str) { 
         if(!str) return ''; 
         return str.replace(/[&<>]/g, function(m){ 
@@ -910,24 +782,17 @@
         });
     }
 
-    // 导出CSV功能
-    function exportToCSV() {
-        if(storage.transactions.length === 0) { 
-            alert("空空如也～记一笔再导出吧"); 
-            return; 
-        }
-        let csvRows = [["流水ID","日期","类型","主分类","子分类","账户","金额","备注"]];
-        storage.transactions.forEach(t => {
-            csvRows.push([
-                t.id, 
-                t.date, 
-                t.type === 'INCOME' ? '收入' : '支出', 
-                t.primaryCate, 
-                t.subCate, 
-                t.account, 
-                t.amount.toFixed(2), 
-                t.remark
-            ]);
-        });
-        const csvContent = csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-        const blob = new Blob(["\uFEFF" + csvContent], {type: "text/csv;charset=utf-8
+    // 页面初始化
+    window.onload = function() {
+        document.getElementById('txDate').valueAsDate = new Date();
+        loadCloudToInputs();
+        refreshAll();
+        document.getElementById('syncBtn').onclick = syncWithGitHub;
+        document.getElementById('exportBtn').onclick = exportToCSV;
+        document.getElementById('txType').addEventListener('change', () => renderCategoryCascade());
+        document.getElementById('txPrimaryCate').addEventListener('change', () => renderSubCascade());
+        document.getElementById('configType').addEventListener('change', () => renderConfigList());
+    };
+</script>
+</body>
+</html>
