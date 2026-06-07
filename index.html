@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0086)file:///C:/Users/50246/Desktop/%E8%AE%B0%E8%B4%A6%E6%9C%AC%E9%9A%90%E8%97%8FTOKEN.html -->
-<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔮 桃气紫账本 (GitHub云同步版)</title>
-    <script src="./🔮 桃气紫账本 (GitHub云同步版)_files/chart.js.下载"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { 
             --primary: #7a73b0;       
@@ -84,9 +84,9 @@
     </div>
 
     <div class="dashboard">
-        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥-5.00</p></div>
+        <div class="card"><h3>我的资产净值</h3><p id="netAsset" style="color:var(--primary)">¥0.00</p></div>
         <div class="card"><h3>本期收入鸭</h3><p id="totalIncome" style="color:#43aa8b">¥0.00</p></div>
-        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥5.00</p></div>
+        <div class="card"><h3>不小心花掉</h3><p id="totalExpense" style="color:#e56b73">¥0.00</p></div>
     </div>
 
     <div class="grid-layout">
@@ -102,23 +102,23 @@
                 </div>
                 <div class="form-group">
                     <label>交易金额 (元)</label>
-                    <input type="number" id="txAmount" step="0.01" required="" placeholder="0.00">
+                    <input type="number" id="txAmount" step="0.01" required placeholder="0.00">
                 </div>
                 <div class="form-group">
                     <label>一级大类</label>
-                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"><option value="餐饮美食">餐饮美食</option><option value="休闲娱乐">休闲娱乐</option></select>
+                    <select id="txPrimaryCate" onchange="renderSubCategoryCascade()"></select>
                 </div>
                 <div class="form-group">
                     <label>二级细分类</label>
-                    <select id="txSubCate"><option value="买奶茶 🥤">买奶茶 🥤</option><option value="开心火锅 🍲">开心火锅 🍲</option></select>
+                    <select id="txSubCate"></select>
                 </div>
                 <div class="form-group">
                     <label>支付/收款账户</label>
-                    <select id="txAccount"><option value="微信支付">微信支付</option><option value="支付宝">支付宝</option><option value="现金">现金</option></select>
+                    <select id="txAccount"></select>
                 </div>
                 <div class="form-group">
                     <label>记账日期</label>
-                    <input type="date" id="txDate" required="">
+                    <input type="date" id="txDate" required>
                 </div>
                 <div class="form-group">
                     <label>备忘小树洞</label>
@@ -130,32 +130,15 @@
 
         <div class="box">
             <h2>账目流水日记本</h2>
-            <div class="list-container" id="historyList">
-                <div class="item">
-                    <div>
-                        <div><span class="cate-tag">餐饮美食</span><span class="sub-tag">买奶茶 🥤</span></div>
-                        <div class="meta">📅 2026-06-06 | 👛 微信支付 | 📝 贴心留白</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div class="amt EXPENSE">－¥5.00</div>
-                        <span class="del-btn" style="font-size:11px;" onclick="deleteTransaction(&#39;TX1780761749322_1jyq&#39;)">擦除</span>
-                    </div>
-                </div>
-            </div>
+            <div class="list-container" id="historyList"></div>
             <div class="chart-wrapper">
-                <canvas id="analyticsChart" height="401" width="401" style="display: block; box-sizing: border-box; height: 321.2px; width: 321px;"></canvas>
+                <canvas id="analyticsChart" height="120"></canvas>
             </div>
         </div>
 
         <div class="box">
             <h2>小金库账户管理</h2>
-            <div class="config-list" id="accountConfigList">
-            <div class="config-item"><span>💰 微信支付 (￥0)</span><span class="del-btn" onclick="deleteAccount(0)">×</span></div>
-        
-            <div class="config-item"><span>💰 支付宝 (￥0)</span><span class="del-btn" onclick="deleteAccount(1)">×</span></div>
-        
-            <div class="config-item"><span>💰 现金 (￥0)</span><span class="del-btn" onclick="deleteAccount(2)">×</span></div>
-        </div>
+            <div class="config-list" id="accountConfigList"></div>
             <div class="inline-form">
                 <input type="text" id="newAccountName" placeholder="新账户名">
                 <input type="number" id="newAccountInit" placeholder="初始" style="width:65px;">
@@ -169,19 +152,19 @@
                     <option value="INCOME">修改收入项</option>
                 </select>
             </div>
-            <div class="config-list" id="cateConfigList"><div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ 餐饮美食 <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;)">[删]</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 买奶茶 🥤</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;, 0)">×</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 开心火锅 🍲</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;餐饮美食&#39;, 1)">×</span></div><div style="font-weight:bold; margin-top:4px; color:var(--primary);">✨ 休闲娱乐 <span class="del-btn" style="font-size:11px;" onclick="deletePrimaryCategory(&#39;EXPENSE&#39;,&#39;休闲娱乐&#39;)">[删]</span></div><div class="config-item" style="padding-left:12px; color:#6f698a;"><span>└─ 猫咖体验 🐱</span><span class="del-btn" onclick="deleteSubCategory(&#39;EXPENSE&#39;,&#39;休闲娱乐&#39;, 0)">×</span></div></div>
+            <div class="config-list" id="cateConfigList"></div>
             <div class="inline-form">
                 <input type="text" id="newPrimaryName" placeholder="新增主大类">
                 <button class="btn btn-primary" style="width:65px; padding:0; font-size:12px;" onclick="addPrimaryCategory()">加主类</button>
             </div>
             <div class="inline-form" style="border-top: 2px dashed #fff; padding-top:6px; margin-top:6px;">
-                <select id="configPrimarySelect" style="width:40%;"><option value="餐饮美食">餐饮美食</option><option value="休闲娱乐">休闲娱乐</option></select>
+                <select id="configPrimarySelect" style="width:40%;"></select>
                 <input type="text" id="newSubName" placeholder="新二级子类" style="width:45%;">
                 <button class="btn btn-primary" style="width:45px; padding:0; font-size:12px;" onclick="addSubCategory()">+</button>
             </div>
 
             <h2 style="margin-top: 20px; color: #a389d4;" onclick="toggleSyncPanel()">☁️ 多端同步小雷达 <span>[展开/收起]</span></h2>
-            <div id="syncPanel" class="collapsible-content" style="display: block;">
+            <div id="syncPanel" class="collapsible-content">
                 <div class="form-group">
                     <label>GitHub 用户名</label>
                     <input type="text" id="ghUser" placeholder="例如: abc" onchange="saveCloudConfig()">
@@ -456,5 +439,5 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 </script>
-
-</body></html>
+</body>
+</html>
