@@ -1075,62 +1075,65 @@ if (storage) {
     }
 
     // ========== 语音识别 ==========
-    function initSpeechRecognition() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            document.getElementById('voiceBtn').disabled = true;
-            document.getElementById('voiceBtn').textContent = '🎙️ 浏览器不支持语音';
-            document.getElementById('voiceBtn').style.opacity = '0.5';
-            showToast("当前浏览器不支持语音识别，请使用Chrome或Safari", true);
-            return false;
-        }
-        
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'zh-CN';
-        
-        recognition.onstart = function() {
-            isListening = true;
-            const voiceBtn = document.getElementById('voiceBtn');
-            voiceBtn.textContent = '🔴 正在聆听... 点击停止';
-            voiceBtn.classList.add('listening');
-            showToast("🎤 请开始说话...");
-        };
-        
-        recognition.onend = function() {
-            isListening = false;
-            const voiceBtn = document.getElementById('voiceBtn');
-            voiceBtn.textContent = '🎙️ 点击开始语音记账';
-            voiceBtn.classList.remove('listening');
-        };
-        
-        recognition.onresult = function(event) {
-            const text = event.results[0][0].transcript;
-            document.getElementById('voiceResult').style.display = 'block';
-            document.getElementById('voiceResult').innerHTML = `📝 识别结果: "${text}"<br>🔄 正在解析...`;
-            parseVoiceCommand(text);
-        };
-        
-        recognition.onerror = function(event) {
-            console.error('语音识别错误:', event.error);
-            showToast("语音识别失败: " + event.error, true);
-            const voiceBtn = document.getElementById('voiceBtn');
-            voiceBtn.textContent = '🎙️ 点击开始语音记账';
-            voiceBtn.classList.remove('listening');
-            isListening = false;
-        };
-        
-        return true;
+function initSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        document.getElementById('voiceBtn').disabled = true;
+        document.getElementById('voiceBtn').textContent = '🎙️ 浏览器不支持语音';
+        document.getElementById('voiceBtn').style.opacity = '0.5';
+        showToast("当前浏览器不支持语音识别，请使用Chrome或Safari", true);
+        return false;
     }
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'zh-CN';
+    
+    recognition.onstart = function() {
+        isListening = true;
+        const voiceBtn = document.getElementById('voiceBtn');
+        voiceBtn.textContent = '🔴 正在聆听... 点击停止';
+        voiceBtn.classList.add('listening');
+        showToast("🎤 请开始说话...");
+    };
+    
+    recognition.onend = function() {
+        isListening = false;
+        const voiceBtn = document.getElementById('voiceBtn');
+        voiceBtn.textContent = '🎙️ 点击开始语音记账';
+        voiceBtn.classList.remove('listening');
+    };
+    
+    recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        document.getElementById('voiceResult').style.display = 'block';
+        document.getElementById('voiceResult').innerHTML = `📝 识别结果: "${text}"<br>🔄 正在解析...`;
+        parseVoiceCommand(text);
+    };
+    
+    recognition.onerror = function(event) {
+        console.error('语音识别错误:', event.error);
+        showToast("语音识别失败: " + event.error, true);
+        const voiceBtn = document.getElementById('voiceBtn');
+        voiceBtn.textContent = '🎙️ 点击开始语音记账';
+        voiceBtn.classList.remove('listening');
+        isListening = false;
+    };
+    
+    return true;
+}
 
-    function parseVoiceCommand(text) {
+// ==================== 增强版语音解析 ====================
+
+// 1. 主解析函数
+function parseVoiceCommand(text) {
     let type = null;
     let amount = null;
     let category = null;
     let remark = text;
     
-    // 1. 智能类型识别 - 使用权重评分
+    // 智能类型识别 - 使用权重评分
     const typeScores = {
         INCOME: 0,
         EXPENSE: 0
@@ -1157,31 +1160,28 @@ if (storage) {
     } else if (typeScores.EXPENSE > typeScores.INCOME && typeScores.EXPENSE > 0) {
         type = 'EXPENSE';
     } else if (typeScores.INCOME === typeScores.EXPENSE && typeScores.INCOME > 0) {
-        // 平局，检查更确定的线索
         if (text.includes('工资') || text.includes('奖金') || text.includes('红包')) {
             type = 'INCOME';
         } else if (text.includes('吃饭') || text.includes('购物') || text.includes('买')) {
             type = 'EXPENSE';
         } else {
-            // 默认根据金额前面的符号
             if (text.includes('+')) type = 'INCOME';
             else if (text.includes('-')) type = 'EXPENSE';
         }
     }
     
-    // 2. 增强金额提取
+    // 增强金额提取
     amount = extractAmount(text);
     
-    // 3. 智能分类匹配
+    // 智能分类匹配
     category = findBestCategory(text, type);
     
-    // 4. 生成语音反馈
+    // 生成语音反馈
     const resultDiv = document.getElementById('voiceResult');
     if (type && amount && amount > 0) {
         const typeText = type === 'INCOME' ? '收入' : '支出';
         const categoryText = category || '未分类';
         
-        // 语音播报结果
         speakText(`已识别：${typeText} ${amount}元，分类：${categoryText}`);
         
         resultDiv.innerHTML = `
@@ -1193,14 +1193,12 @@ if (storage) {
         `;
         resultDiv.style.display = 'block';
         
-        // 保存并清除之前的定时器
         if (window.voiceTimeout) clearTimeout(window.voiceTimeout);
         window.voiceTimeout = setTimeout(() => {
             autoSaveVoiceTransaction(type, amount, categoryText, remark);
             window.voiceTimeout = null;
         }, 3000);
     } else {
-        // 解析失败，给出提示
         const errorMsg = getErrorMessage(text);
         resultDiv.innerHTML = `⚠️ ${errorMsg}`;
         resultDiv.style.display = 'block';
@@ -1210,70 +1208,9 @@ if (storage) {
         }, 4000);
     }
 }
-    
-        if (!type) {
-            for (let kw of expenseKeywords) {
-                if (text.includes(kw)) {
-                    type = 'EXPENSE';
-                    break;
-                }
-            }
-        }
-        
-        const amountPatterns = [
-            /(\d+(?:\.\d+)?)元/,
-            /(\d+(?:\.\d+)?)块钱/,
-            /(\d+(?:\.\d+)?)块/,
-            /花了(\d+(?:\.\d+)?)/,
-            /支出(\d+(?:\.\d+)?)/,
-            /收入(\d+(?:\.\d+)?)/,
-            /赚了(\d+(?:\.\d+)?)/,
-            /(\d+(?:\.\d+)?)元/
-        ];
-        
-        for (let pattern of amountPatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                amount = parseFloat(match[1]);
-                break;
-            }
-        }
-        
-        if (!amount) {
-            const numberMatch = text.match(/(\d+(?:\.\d+)?)/);
-            if (numberMatch && !text.includes('电话') && !text.includes('号码')) {
-                amount = parseFloat(numberMatch[1]);
-            }
-        }
-        
-        const allCategories = { ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES };
-        for (let [cate, subs] of Object.entries(allCategories)) {
-            const cleanCate = cate.replace(/[👗🍜🏠🚗📱🎮📚🎁🏥💰📦💼]/g, '').trim();
-            if (text.includes(cleanCate) || subs.some(s => text.includes(s))) {
-                category = cate;
-                break;
-            }
-        }
-        
-        const resultDiv = document.getElementById('voiceResult');
-        if (type && amount && amount > 0) {
-            const typeText = type === 'INCOME' ? '收入' : '支出';
-            const categoryText = category || '未分类';
-            resultDiv.innerHTML = `✅ 解析完成！<br>📌 ${typeText} ¥${amount.toFixed(2)}<br>📂 ${categoryText}<br>📝 "${remark}"<br>⏳ 3秒后自动保存...`;
-            
-            setTimeout(() => {
-                autoSaveVoiceTransaction(type, amount, categoryText, remark);
-            }, 3000);
-        } else {
-            resultDiv.innerHTML = `⚠️ 未能完整解析<br>识别文字: "${text}"<br>请尝试说: "吃饭花了50元" 或 "工资收入5000元"`;
-            setTimeout(() => {
-                resultDiv.style.display = 'none';
-            }, 4000);
-        }
-    }
-    // ========== 增强金额提取 ==========
+
+// 2. 增强金额提取
 function extractAmount(text) {
-    // 1. 匹配带单位的金额
     const patterns = [
         /(\d+(?:\.\d+)?)\s*元/,
         /(\d+(?:\.\d+)?)\s*块钱/,
@@ -1294,30 +1231,29 @@ function extractAmount(text) {
         }
     }
     
-    // 2. 匹配纯数字（但排除电话号码、日期等）
     const numberMatches = text.match(/(\d+(?:\.\d+)?)/g);
     if (numberMatches) {
-        // 过滤掉常见的非金额数字
         const filtered = numberMatches.filter(num => {
             const numVal = parseFloat(num);
-            // 排除：电话号码、年份、日期等
-            if (numVal > 10000 && numVal < 20000) return false; // 年
-            if (numVal > 100000000) return false; // 手机号
+            if (numVal > 10000 && numVal < 20000) return false;
+            if (numVal > 100000000) return false;
             if (numVal > 0 && numVal <= 99999) return true;
             return false;
         });
         if (filtered.length > 0) {
-            // 取最后一个数字（通常是金额）
             return parseFloat(filtered[filtered.length - 1]);
         }
     }
     
-    // 3. 尝试解析中文数字
     const chineseNum = text.match(/[一二三四五六七八九十百千万亿]+/);
     if (chineseNum) {
         return chineseToNumber(chineseNum[0]);
     }
-    // ========== 中文数字转阿拉伯数字 ==========
+    
+    return null;
+}
+
+// 3. 中文数字转阿拉伯数字
 function chineseToNumber(chinese) {
     const map = {
         '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
@@ -1340,7 +1276,7 @@ function chineseToNumber(chinese) {
     return result + temp;
 }
 
-// ========== 智能分类匹配 ==========
+// 4. 智能分类匹配
 function findBestCategory(text, type) {
     if (!type) return null;
     
@@ -1348,7 +1284,6 @@ function findBestCategory(text, type) {
     let bestMatch = null;
     let bestScore = 0;
     
-    // 关键词映射（更丰富的关键词）
     const keywordMap = {
         '👗 衣服饰品': ['衣服', '裤子', '鞋子', '帽子', '包', '首饰', '珠宝', '配饰', '服装', '穿搭'],
         '🍜 食品酒水': ['吃', '饭', '餐', '早', '午', '晚', '夜宵', '零食', '水果', '饮料', '酒', '茶', '咖啡', '奶茶', '外卖', '餐厅', '饭店', '食堂'],
@@ -1367,20 +1302,16 @@ function findBestCategory(text, type) {
     
     for (let [cate, keywords] of Object.entries(keywordMap)) {
         let score = 0;
-        // 检查主分类名
         const cleanCate = cate.replace(/[👗🍜🏠🚗📱🎮📚🎁🏥💰📦💼]/g, '').trim();
         if (text.includes(cleanCate)) score += 3;
         
-        // 检查关键词
         for (let kw of keywords) {
             if (text.includes(kw)) {
                 score += 2;
-                // 如果关键词是"吃"、"买"这类常见词，降低权重
                 if (['吃', '买', '用', '花'].includes(kw)) score -= 0.5;
             }
         }
         
-        // 检查子分类
         if (categories[cate]) {
             for (let sub of categories[cate]) {
                 if (text.includes(sub)) {
@@ -1395,29 +1326,27 @@ function findBestCategory(text, type) {
         }
     }
     
-    // 如果分数太低，返回第一个分类或null
     if (bestScore < 1) {
         const keys = Object.keys(categories);
         return keys.length > 0 ? keys[0] : null;
     }
     
     return bestMatch;
-}    
-    // ========== 语音播报（使用Web Speech API） ==========
+}
+
+// 5. 语音播报
 function speakText(text) {
     if (!('speechSynthesis' in window)) return;
-    
-    // 取消之前的播报
     window.speechSynthesis.cancel();
-    
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'zh-CN';
     utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
     window.speechSynthesis.speak(utterance);
-} 
-    // ========== 生成友好的错误提示 ==========
+}
+
+// 6. 生成友好的错误提示
 function getErrorMessage(text) {
     if (!text || text.length < 2) {
         return '没有听到声音，请靠近麦克风再说一遍';
@@ -1427,61 +1356,62 @@ function getErrorMessage(text) {
     }
     return `未能完整解析<br>识别文字: "${text}"<br>请尝试说: "吃饭花了50元" 或 "工资收入5000元"`;
 }
-    return null;
-}
-    
-    function autoSaveVoiceTransaction(type, amount, primaryCate, remark) {
-        let subCate = '日常';
-        if (type === 'EXPENSE' && storage.categories.EXPENSE[primaryCate]) {
-            const subList = storage.categories.EXPENSE[primaryCate] || [];
-            subCate = subList.length > 0 ? subList[0] : '日常';
-        } else if (type === 'INCOME' && storage.categories.INCOME[primaryCate]) {
-            const subList = storage.categories.INCOME[primaryCate] || [];
-            subCate = subList.length > 0 ? subList[0] : '收入';
-        }
-        
-        const defaultAccount = storage.accounts.length > 0 ? storage.accounts[0].name : '微信支付';
-        
-        const newTx = {
-            id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-            type: type,
-            amount: amount,
-            primaryCate: primaryCate || '未分类',
-            subCate: subCate,
-            account: defaultAccount,
-            date: new Date().toISOString().split('T')[0],
-            remark: remark || '🎤 语音记账',
-            createdAt: Date.now(),
-        };
-        
-        storage.transactions.unshift(newTx);
-        persist();
-        refreshAll();
-        showToast(`🎤 语音记账成功！${type === 'INCOME' ? '+' : '-'}¥${amount.toFixed(2)}`);
-        
-        const resultDiv = document.getElementById('voiceResult');
-        resultDiv.innerHTML = `🎉 已保存！${type === 'INCOME' ? '+' : '-'}¥${amount.toFixed(2)} - ${primaryCate}`;
-        setTimeout(() => {
-            resultDiv.style.display = 'none';
-        }, 2000);
-    }
 
-    function toggleVoiceRecognition() {
-        if (!recognition) {
-            if (!initSpeechRecognition()) return;
-        }
-        
-        if (isListening) {
-            recognition.stop();
-        } else {
-            try {
-                recognition.start();
-            } catch(e) {
-                showToast("请允许麦克风权限后重试", true);
-                initSpeechRecognition();
-            }
+// 7. 自动保存语音交易
+function autoSaveVoiceTransaction(type, amount, primaryCate, remark) {
+    let subCate = '日常';
+    if (type === 'EXPENSE' && storage.categories.EXPENSE[primaryCate]) {
+        const subList = storage.categories.EXPENSE[primaryCate] || [];
+        subCate = subList.length > 0 ? subList[0] : '日常';
+    } else if (type === 'INCOME' && storage.categories.INCOME[primaryCate]) {
+        const subList = storage.categories.INCOME[primaryCate] || [];
+        subCate = subList.length > 0 ? subList[0] : '收入';
+    }
+    
+    const defaultAccount = storage.accounts.length > 0 ? storage.accounts[0].name : '微信支付';
+    
+    const newTx = {
+        id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        type: type,
+        amount: amount,
+        primaryCate: primaryCate || '未分类',
+        subCate: subCate,
+        account: defaultAccount,
+        date: new Date().toISOString().split('T')[0],
+        remark: remark || '🎤 语音记账',
+        createdAt: Date.now(),
+    };
+    
+    storage.transactions.unshift(newTx);
+    persist();
+    refreshAll();
+    showToast(`🎤 语音记账成功！${type === 'INCOME' ? '+' : '-'}¥${amount.toFixed(2)}`);
+    
+    const resultDiv = document.getElementById('voiceResult');
+    resultDiv.innerHTML = `🎉 已保存！${type === 'INCOME' ? '+' : '-'}¥${amount.toFixed(2)} - ${primaryCate}`;
+    setTimeout(() => {
+        resultDiv.style.display = 'none';
+    }, 2000);
+}
+
+function toggleVoiceRecognition() {
+    if (!recognition) {
+        if (!initSpeechRecognition()) return;
+    }
+    
+    if (isListening) {
+        recognition.stop();
+    } else {
+        try {
+            recognition.start();
+        } catch(e) {
+            showToast("请允许麦克风权限后重试", true);
+            initSpeechRecognition();
         }
     }
+}
+
+ 
 
     // ========== 编辑功能 ==========
     function startEdit(id) {
