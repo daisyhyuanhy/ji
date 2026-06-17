@@ -906,13 +906,11 @@
         lastSyncTime: null
     };
 
-    // 使用初始数据
-    // 替换第402-404行
+    // ========== 数据初始化 ==========
 let storage = localStorage.getItem('gh_ledger_data_v3');
 if (storage) {
     try {
         storage = JSON.parse(storage);
-        // 确保所有必要的字段存在
         if (!storage.accounts || !storage.categories || !storage.transactions) {
             throw new Error('数据结构不完整');
         }
@@ -922,8 +920,8 @@ if (storage) {
         localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage));
     }
 } else {
-    //storage = JSON.parse(JSON.stringify(INITIAL_DATA));
-    //localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage));
+    storage = JSON.parse(JSON.stringify(INITIAL_DATA));
+    localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage));
 }
 
     let chartInstance = null;
