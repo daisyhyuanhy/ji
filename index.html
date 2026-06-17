@@ -1368,7 +1368,15 @@ function autoSaveVoiceTransaction(type, amount, primaryCate, remark) {
         subCate = subList.length > 0 ? subList[0] : '收入';
     }
     
-    const defaultAccount = storage.accounts.length > 0 ? storage.accounts[0].name : '微信支付';
+    // 确保有账户可用
+    let defaultAccount = '微信支付';
+    if (storage.accounts.length > 0) {
+        defaultAccount = storage.accounts[0].name;
+    } else {
+        // 如果没有任何账户，创建一个
+        storage.accounts.push({ name: defaultAccount, balance: 0 });
+        persist();
+    }
     
     const newTx = {
         id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
@@ -1441,11 +1449,31 @@ function toggleVoiceRecognition() {
             showToast("金额必须是正数", true);
             return;
         }
+// ========== 新增：验证分类是否存在 ==========
+    if (!storage.categories[type]) {
+        showToast("⚠️ 分类数据异常，请刷新页面", true);
+        return;
+    }
+    
+    if (!storage.categories[type][primaryCate]) {
+        showToast(`⚠️ 主分类 "${primaryCate}" 不存在，请重新选择`, true);
+        // 刷新编辑界面
+        refreshAll();
+        return;
+    }
+    
+    // 确保子分类存在
+    let finalSubCate = subCate;
+    if (!storage.categories[type][primaryCate].includes(subCate)) {
+        const subList = storage.categories[type][primaryCate] || [];
+        finalSubCate = subList.length > 0 ? subList[0] : '日常';
+        showToast(`⚠️ 子分类已自动调整为: ${finalSubCate}`, true);
+    }
         
         tx.type = type;
         tx.amount = amount;
         tx.primaryCate = primaryCate;
-        tx.subCate = subCate;
+        tx.subCate = finalSubCate;
         tx.account = account;
         tx.date = date;
         tx.remark = remark || '✨ 桃气笔记';
@@ -1515,18 +1543,139 @@ function toggleVoiceRecognition() {
         localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage)); 
     }
 
-    function recalcAccountBalances() {
-        storage.accounts.forEach(acc => { acc.balance = 0; });
-        let sortedTx = [...storage.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-        sortedTx.forEach(t => {
-            let account = storage.accounts.find(a => a.name === t.account);
-            if (account) {
-                if (t.type === 'INCOME') account.balance += t.amount;
-                else account.balance -= t.amount;
-            }
-        });
+function recalcAccountBalances() {
+    // ========== 第一步：修复缺失的账户 ==========
+    // 收集所有交易中出现的账户名
+    const txAccountNames = new Set();
+    storage.transactions.forEach(t => {
+        if (t.account) {
+            txAccountNames.add(t.account);
+        }
+    });
+    
+    // 检查并补充缺失的账户
+    let accountsAdded = 0;
+    txAccountNames.forEach(accName => {
+        const exists = storage.accounts.some(a => a.name === accName);
+        if (!exists) {
+            // 自动创建缺失的账户，初始余额为0
+            storage.accounts.push({ 
+                name: accName, 
+                balance: 0,
+                autoCreated: true  // 标记为自动创建
+            });
+            accountsAdded++;
+            console.log(`🔄 自动创建缺失账户: ${accName}`);
+        }
+    });
+    
+    if (accountsAdded > 0) {
+        showToast(`⚠️ 发现并修复 ${accountsAdded} 个缺失账户`, true);
+        persist(); // 保存修复结果
+    }
+
+    // ========== 第二步：重置所有账户余额 ==========
+    storage.accounts.forEach(acc => { 
+        acc.balance = 0; 
+    });
+
+    // ========== 第三步：按日期排序交易记录 ==========
+    const sortedTx = [...storage.transactions].sort((a, b) => {
+        // 优先按日期排序
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        if (dateA - dateB !== 0) {
+            return dateA - dateB;
+        }
+        // 同日期按创建时间排序
+        return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+
+    // ========== 第四步：逐笔计算账户余额 ==========
+    let skippedCount = 0;
+    sortedTx.forEach((t, index) => {
+        // 查找账户
+        let account = storage.accounts.find(a => a.name === t.account);
+        
+        if (!account) {
+            // 如果还是找不到（理论上不会发生，但作为兜底）
+            console.warn(`⚠️ 交易 ${t.id} 的账户 "${t.account}" 不存在，尝试创建`);
+            storage.accounts.push({ 
+                name: t.account, 
+                balance: 0,
+                autoCreated: true
+            });
+            account = storage.accounts[storage.accounts.length - 1];
+            persist();
+        }
+
+        // 确保账户名在交易中是一致的
+        if (account && t.account !== account.name) {
+            // 修复交易中的账户名（使用标准化的账户名）
+            t.account = account.name;
+        }
+
+        // 计算余额变化
+        if (t.type === 'INCOME') {
+            account.balance += t.amount;
+        } else if (t.type === 'EXPENSE') {
+            account.balance -= t.amount;
+        } else {
+            // 未知类型，记录警告
+            console.warn(`⚠️ 交易 ${t.id} 的类型未知: ${t.type}`);
+            skippedCount++;
+        }
+
+        // 可选：记录每个账户的余额变化日志（调试用）
+        // console.log(`📊 ${t.date} ${t.type} ${t.amount} -> ${account.name}: ${account.balance.toFixed(2)}`);
+    });
+
+    // ========== 第五步：处理异常情况 ==========
+    // 检查是否有账户余额为负数（支出超过收入）
+    const negativeAccounts = storage.accounts.filter(acc => acc.balance < -0.01);
+    if (negativeAccounts.length > 0) {
+        console.warn('⚠️ 以下账户余额为负数:', negativeAccounts.map(a => `${a.name}: ${a.balance.toFixed(2)}`));
+        // 可以选择是否通知用户
+        // showToast(`⚠️ 发现 ${negativeAccounts.length} 个账户余额为负`, true);
+    }
+
+    if (skippedCount > 0) {
+        console.warn(`⚠️ 有 ${skippedCount} 笔交易因类型未知被跳过`);
+    }
+
+    // ========== 第六步：清理无用的账户 ==========
+    // 清理既没有交易也没有余额的自动创建账户（可选）
+    const activeAccountNames = new Set(storage.transactions.map(t => t.account));
+    const toRemove = [];
+    storage.accounts.forEach((acc, index) => {
+        // 如果是自动创建的、没有余额、且没有关联交易
+        if (acc.autoCreated && acc.balance === 0 && !activeAccountNames.has(acc.name)) {
+            toRemove.push(index);
+        }
+    });
+    
+    // 从后往前删除，避免索引变化
+    toRemove.reverse().forEach(idx => {
+        console.log(`🧹 清理无用账户: ${storage.accounts[idx].name}`);
+        storage.accounts.splice(idx, 1);
+    });
+
+    if (toRemove.length > 0) {
         persist();
     }
+
+    // ========== 第七步：保存最终结果 ==========
+    persist();
+    
+    // 返回统计信息
+    return {
+        totalAccounts: storage.accounts.length,
+        totalTransactions: storage.transactions.length,
+        accountsAdded: accountsAdded,
+        accountsCleaned: toRemove.length,
+        skippedTransactions: skippedCount
+    };
+}
 
     function renderAccountManager() {
         const accContainer = document.getElementById('accountConfigList');
@@ -1558,7 +1707,12 @@ function toggleVoiceRecognition() {
             }
         });
         if (needUpdate) persist();
-        
+        // 在渲染之前先修复账户余额
+        const stats = recalcAccountBalances();
+        if (stats && stats.accountsAdded > 0) {
+        console.log('✅ 已自动修复账户:', stats);
+    }
+
         renderAccountSelect();
         renderCategoryCascade();
         
@@ -1570,7 +1724,7 @@ function toggleVoiceRecognition() {
         if (catePanel.style.display === 'block') {
             renderConfigList();
         }
-        renderTransactionsAndDashboard();
+        renderTransactionsAndDashboard();	
     }
 
     function renderAccountSelect() {
@@ -1649,7 +1803,6 @@ function toggleVoiceRecognition() {
         let chartAgg = {};
         let html = '';
 
-        recalcAccountBalances();
         let totalNet = storage.accounts.reduce((sum, acc) => sum + acc.balance, 0);
         
         const txs = [...storage.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -1671,81 +1824,133 @@ function toggleVoiceRecognition() {
                     remarkHtml = `<div class="remark-badge">💬 ${escapeHtml(shortRemark)}</div>`;
                 }
                 
-                if (isEditing) {
-                    // 编辑模式
-                    const allPrimaryKeys = Object.keys(storage.categories[t.type] || {});
-                    const subList = storage.categories[t.type]?.[t.primaryCate] || [];
-                    
-                    html += `<div class="item editing">
-                        <div style="width:100%;">
-                            <div class="edit-inline">
-                                <select id="edit_type_${t.id}" style="width:80px;">
-                                    <option value="EXPENSE" ${t.type === 'EXPENSE' ? 'selected' : ''}>🌸 支出</option>
-                                    <option value="INCOME" ${t.type === 'INCOME' ? 'selected' : ''}>💰 收入</option>
-                                </select>
-                                <input type="number" id="edit_amount_${t.id}" value="${t.amount}" step="0.01" style="width:80px;">
-                                <select id="edit_primary_${t.id}" style="width:100px;" onchange="updateEditSub('${t.id}')">
-                                    ${allPrimaryKeys.map(p => `<option value="${escapeHtml(p)}" ${p === t.primaryCate ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
-                                    ${allPrimaryKeys.length === 0 ? '<option value="">-- 无分类 --</option>' : ''}
-                                </select>
-                                <select id="edit_sub_${t.id}" style="width:80px;">
-                                    ${subList.map(s => `<option value="${escapeHtml(s)}" ${s === t.subCate ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
-                                    ${subList.length === 0 ? '<option value="日常">日常</option>' : ''}
-                                </select>
-                                <select id="edit_account_${t.id}" style="width:80px;">
-                                    ${storage.accounts.map(a => `<option value="${escapeHtml(a.name)}" ${a.name === t.account ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
-                                </select>
-                                <input type="date" id="edit_date_${t.id}" value="${t.date}" style="width:100px;">
-                            </div>
-                            <div class="edit-inline">
-                                <input type="text" id="edit_remark_${t.id}" value="${escapeHtml(t.remark)}" placeholder="备注" style="flex:1; min-width:100px;">
-                                <button class="btn btn-save-edit" onclick="saveEdit('${t.id}')">✅ 保存</button>
-                                <button class="btn btn-cancel-edit" onclick="cancelEdit()">❌ 取消</button>
-                            </div>
-                        </div>
-                    </div>`;
-                } else {
-                    // 正常显示模式
-                    html += `<div class="item">
-                        <div class="item-left">
-                            <div>
-                                <span class="cate-tag">${escapeHtml(t.primaryCate)}</span>
-                                <span class="sub-tag">${escapeHtml(t.subCate)}${importTag}</span>
-                            </div>
-                            ${remarkHtml}
-                            <div class="meta-info">📆 ${t.date} · 💳 ${escapeHtml(t.account)}</div>
-                        </div>
-                        <div class="item-right">
-                            <div class="amt ${amountCls}">${sign} ¥${t.amount.toFixed(2)}</div>
-                            <div class="item-actions">
-                                <span class="del-icon" style="background: rgba(96, 165, 250, 0.15); color: #3b82f6;" onclick="startEdit('${t.id}')">✏️ 编辑</span>
-                                <span class="del-icon" onclick="deleteTransaction('${t.id}')">🗑️ 抹去</span>
-                            </div>
-                        </div>
-                    </div>`;
+                           if (isEditing) {
+                // ========== 修复：编辑模式 ==========
+                // 1. 获取分类数据，如果不存在则创建默认分类
+                if (!storage.categories[t.type]) {
+                    storage.categories[t.type] = {};
+                    // 如果是支出类型，从预设中恢复
+                    if (t.type === 'EXPENSE') {
+                        storage.categories[t.type] = JSON.parse(JSON.stringify(EXPENSE_CATEGORIES));
+                    } else {
+                        storage.categories[t.type] = JSON.parse(JSON.stringify(INCOME_CATEGORIES));
+                    }
+                    persist();
                 }
-            });
-        }
+                
+                // 2. 获取所有主分类
+                let allPrimaryKeys = Object.keys(storage.categories[t.type] || {});
+                
+                // 3. 如果主分类为空，创建一个默认分类
+                if (allPrimaryKeys.length === 0) {
+                    const defaultCate = t.type === 'EXPENSE' ? '📦 其他杂项' : '📦 其他收入';
+                    storage.categories[t.type][defaultCate] = ['日常'];
+                    persist();
+                    allPrimaryKeys = Object.keys(storage.categories[t.type]);
+                    showToast(`⚠️ 自动创建默认分类: ${defaultCate}`, true);
+                }
+                
+                // 4. 确保当前交易的主分类存在于列表中
+                if (!storage.categories[t.type][t.primaryCate]) {
+                    // 如果当前分类不存在，使用第一个可用分类
+                    t.primaryCate = allPrimaryKeys[0];
+                    // 同时更新子分类
+                    const subList = storage.categories[t.type][t.primaryCate] || [];
+                    t.subCate = subList.length > 0 ? subList[0] : '日常';
+                }
+                
+                // 5. 获取当前主分类下的子分类列表
+                const subList = storage.categories[t.type]?.[t.primaryCate] || [];
+                
+                html += `<div class="item editing">
+                    <div style="width:100%;">
+                        <div class="edit-inline">
+                            <select id="edit_type_${t.id}" style="width:80px;" onchange="updateEditSub('${t.id}')">
+                                <option value="EXPENSE" ${t.type === 'EXPENSE' ? 'selected' : ''}>🌸 支出</option>
+                                <option value="INCOME" ${t.type === 'INCOME' ? 'selected' : ''}>💰 收入</option>
+                            </select>
+                            <input type="number" id="edit_amount_${t.id}" value="${t.amount}" step="0.01" style="width:80px;">
+                            <select id="edit_primary_${t.id}" style="width:100px;" onchange="updateEditSub('${t.id}')">
+                                ${allPrimaryKeys.map(p => `<option value="${escapeHtml(p)}" ${p === t.primaryCate ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                            </select>
+                            <select id="edit_sub_${t.id}" style="width:80px;">
+                                ${subList.map(s => `<option value="${escapeHtml(s)}" ${s === t.subCate ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                                ${subList.length === 0 ? '<option value="日常">日常</option>' : ''}
+                            </select>
+                            <select id="edit_account_${t.id}" style="width:80px;">
+                                ${storage.accounts.map(a => `<option value="${escapeHtml(a.name)}" ${a.name === t.account ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+                                ${storage.accounts.length === 0 ? '<option value="微信支付">微信支付</option>' : ''}
+                            </select>
+                            <input type="date" id="edit_date_${t.id}" value="${t.date}" style="width:100px;">
+                        </div>
+                        <div class="edit-inline">
+                            <input type="text" id="edit_remark_${t.id}" value="${escapeHtml(t.remark)}" placeholder="备注" style="flex:1; min-width:100px;">
+                            <button class="btn btn-save-edit" onclick="saveEdit('${t.id}')">✅ 保存</button>
+                            <button class="btn btn-cancel-edit" onclick="cancelEdit()">❌ 取消</button>
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                // 正常显示模式（保持不变）
+                html += `<div class="item">
+                    <div class="item-left">
+                        <div>
+                            <span class="cate-tag">${escapeHtml(t.primaryCate)}</span>
+                            <span class="sub-tag">${escapeHtml(t.subCate)}${importTag}</span>
+                        </div>
+                        ${remarkHtml}
+                        <div class="meta-info">📆 ${t.date} · 💳 ${escapeHtml(t.account)}</div>
+                    </div>
+                    <div class="item-right">
+                        <div class="amt ${amountCls}">${sign} ¥${t.amount.toFixed(2)}</div>
+                        <div class="item-actions">
+                            <span class="del-icon" style="background: rgba(96, 165, 250, 0.15); color: #3b82f6;" onclick="startEdit('${t.id}')">✏️ 编辑</span>
+                            <span class="del-icon" onclick="deleteTransaction('${t.id}')">🗑️ 抹去</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        });
+    }
 
-        document.getElementById('totalIncome').innerHTML = `¥${incomeSum.toFixed(2)}`;
-        document.getElementById('totalExpense').innerHTML = `¥${expenseSum.toFixed(2)}`;
-        document.getElementById('netAsset').innerHTML = `¥${totalNet.toFixed(2)}`;
-        document.getElementById('historyList').innerHTML = html;
-        renderChart(chartAgg);
+    document.getElementById('totalIncome').innerHTML = `¥${incomeSum.toFixed(2)}`;
+    document.getElementById('totalExpense').innerHTML = `¥${expenseSum.toFixed(2)}`;
+    document.getElementById('netAsset').innerHTML = `¥${totalNet.toFixed(2)}`;
+    document.getElementById('historyList').innerHTML = html;
+    renderChart(chartAgg);
     }
 
     // 编辑时切换子分类
-    function updateEditSub(id) {
-        const type = document.getElementById('edit_type_' + id).value;
-        const primary = document.getElementById('edit_primary_' + id).value;
-        const subSelect = document.getElementById('edit_sub_' + id);
-        const subList = storage.categories[type]?.[primary] || [];
-        if (subList.length === 0) {
-            subSelect.innerHTML = '<option value="日常">日常</option>';
+function updateEditSub(id) {
+    const type = document.getElementById('edit_type_' + id).value;
+    const primary = document.getElementById('edit_primary_' + id).value;
+    const subSelect = document.getElementById('edit_sub_' + id);
+    
+    // ========== 修复：确保分类存在 ==========
+    if (!storage.categories[type]) {
+        storage.categories[type] = {};
+        if (type === 'EXPENSE') {
+            storage.categories[type] = JSON.parse(JSON.stringify(EXPENSE_CATEGORIES));
         } else {
-            subSelect.innerHTML = subList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+            storage.categories[type] = JSON.parse(JSON.stringify(INCOME_CATEGORIES));
         }
+        persist();
     }
+    
+    // 如果主分类不存在，创建一个默认的
+    if (!storage.categories[type][primary]) {
+        storage.categories[type][primary] = ['日常'];
+        persist();
+    }
+    
+    const subList = storage.categories[type]?.[primary] || [];
+    if (subList.length === 0) {
+        subSelect.innerHTML = '<option value="日常">日常</option>';
+    } else {
+        subSelect.innerHTML = subList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    }
+}
+      
 
     function renderChart(data) {
         const ctx = document.getElementById('analyticsChart').getContext('2d');
@@ -1782,6 +1987,13 @@ function toggleVoiceRecognition() {
             return;
         }
         if(storage.accounts.length <= 1) { showToast("至少保留一个账户", true); return; }
+// 检查是否有交易使用这个账户
+    const relatedTxs = storage.transactions.filter(t => t.account === accountName);
+    if (relatedTxs.length > 0) {
+        if (!confirm(`账户 "${accountName}" 下有 ${relatedTxs.length} 笔交易记录，确定要删除吗？\n（交易记录将保留）`)) {
+            return;
+        }
+    }
         storage.accounts.splice(idx, 1);
         persist();
         refreshAll();
@@ -1969,7 +2181,11 @@ function toggleVoiceRecognition() {
 
     // ========== 页面初始化 ==========
     window.onload = function() {
-        document.getElementById('txDate').valueAsDate = new Date();
+        const today = new Date();
+const year = today.getFullYear();
+const month = String(today.getMonth() + 1).padStart(2, '0');
+const day = String(today.getDate()).padStart(2, '0');
+document.getElementById('txDate').value = `${year}-${month}-${day}`;
         loadCloudToInputs();
         refreshAll();
         showDeviceInfo();
