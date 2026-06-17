@@ -156,6 +156,36 @@
             box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
         }
 
+        .btn-edit {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: white;
+            font-size: 10px;
+            padding: 3px 10px;
+            margin-right: 4px;
+        }
+
+        .btn-edit:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-save-edit {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            color: white;
+        }
+
+        .btn-save-edit:hover {
+            transform: scale(1.02);
+        }
+
+        .btn-cancel-edit {
+            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            color: white;
+        }
+
+        .btn-cancel-edit:hover {
+            transform: scale(1.02);
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.9; }
@@ -349,12 +379,20 @@
 
         .item-left {
             flex: 1;
-            min-width: 60%;
+            min-width: 55%;
         }
 
         .item-right {
             text-align: right;
             min-width: 80px;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+            margin-top: 4px;
+            flex-wrap: wrap;
         }
 
         .cate-tag {
@@ -412,7 +450,6 @@
             display: inline-block;
             padding: 4px 12px;
             border-radius: 30px;
-            margin-top: 6px;
             transition: all 0.2s ease;
         }
 
@@ -607,7 +644,6 @@
             margin-right: 4px;
         }
 
-        /* 可折叠面板通用样式 */
         .foldable-area {
             margin-top: 20px;
         }
@@ -634,6 +670,37 @@
 
         .foldable-toggle .arrow.open {
             transform: rotate(90deg);
+        }
+
+        /* 编辑模式样式 */
+        .item.editing {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-color: #f59e0b;
+        }
+
+        .edit-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .edit-inline select, .edit-inline input {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 12px;
+            border: 2px solid var(--primary-soft);
+            background: white;
+            outline: none;
+        }
+
+        .edit-inline select:focus, .edit-inline input:focus {
+            border-color: var(--primary);
+        }
+
+        .edit-inline .btn {
+            padding: 4px 12px;
+            font-size: 11px;
         }
     </style>
 </head>
@@ -728,7 +795,6 @@
                 <div id="importStatus" style="font-size: 11px; margin-top: 8px; color: var(--text-light);"></div>
             </div>
 
-            <!-- 账户管家 - 可折叠 -->
             <div class="foldable-area">
                 <h2 class="foldable-toggle" onclick="toggleAccountPanel()">
                     <span class="arrow">▶</span> 🏦 账户管家
@@ -743,7 +809,6 @@
                 </div>
             </div>
 
-            <!-- 自定分类 - 可折叠 -->
             <div class="foldable-area">
                 <h2 class="foldable-toggle" onclick="toggleCatePanel()">
                     <span class="arrow">▶</span> 🗂️ 自定分类
@@ -848,11 +913,12 @@
     let chartInstance = null;
     let recognition = null;
     let isListening = false;
+    let editingId = null; // 正在编辑的记录ID
 
     // ========== 切换面板函数 ==========
     function toggleAccountPanel() {
         const panel = document.getElementById('accountPanel');
-        const arrow = document.querySelector('.foldable-toggle .arrow');
+        const arrow = document.querySelectorAll('.foldable-toggle .arrow')[0];
         if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
             arrow.classList.add('open');
@@ -1173,6 +1239,53 @@
         }
     }
 
+    // ========== 编辑功能 ==========
+    function startEdit(id) {
+        if (editingId) {
+            // 如果已有正在编辑的，先取消
+            cancelEdit();
+        }
+        editingId = id;
+        refreshAll();
+    }
+
+    function cancelEdit() {
+        editingId = null;
+        refreshAll();
+    }
+
+    function saveEdit(id) {
+        const tx = storage.transactions.find(t => t.id === id);
+        if (!tx) return;
+        
+        const type = document.getElementById('edit_type_' + id).value;
+        const amount = parseFloat(document.getElementById('edit_amount_' + id).value);
+        const primaryCate = document.getElementById('edit_primary_' + id).value;
+        const subCate = document.getElementById('edit_sub_' + id).value;
+        const account = document.getElementById('edit_account_' + id).value;
+        const date = document.getElementById('edit_date_' + id).value;
+        const remark = document.getElementById('edit_remark_' + id).value;
+        
+        if (isNaN(amount) || amount <= 0) {
+            showToast("金额必须是正数", true);
+            return;
+        }
+        
+        tx.type = type;
+        tx.amount = amount;
+        tx.primaryCate = primaryCate;
+        tx.subCate = subCate;
+        tx.account = account;
+        tx.date = date;
+        tx.remark = remark || '✨ 桃气笔记';
+        tx.updatedAt = Date.now();
+        
+        persist();
+        editingId = null;
+        refreshAll();
+        showToast('✅ 记录已更新');
+    }
+
     // ========== 核心功能函数 ==========
     function showDeviceInfo() {
         const deviceInfo = document.getElementById('deviceInfo');
@@ -1244,7 +1357,6 @@
         persist();
     }
 
-    // ========== 渲染账户管家 ==========
     function renderAccountManager() {
         const accContainer = document.getElementById('accountConfigList');
         if (accContainer) {
@@ -1266,7 +1378,6 @@
     }
 
     function refreshAll() {
-        // 确保所有预设账户都存在
         const presetNames = PRESET_ACCOUNTS.map(a => a.name);
         let needUpdate = false;
         presetNames.forEach(name => {
@@ -1280,7 +1391,6 @@
         renderAccountSelect();
         renderCategoryCascade();
         
-        // 只在面板展开时渲染内容
         const accountPanel = document.getElementById('accountPanel');
         if (accountPanel.style.display === 'block') {
             renderAccountManager();
@@ -1341,7 +1451,6 @@
     }
 
     function renderConfigList() {
-        // 渲染分类列表
         const type = document.getElementById('configType').value;
         const cateData = storage.categories[type] || {};
         let cateHtml = '';
@@ -1378,6 +1487,7 @@
             html = '<div class="empty-state">暂无流水，记一笔吧～</div>';
         } else {
             txs.forEach(t => {
+                const isEditing = (editingId === t.id);
                 if(t.type === 'INCOME') incomeSum += t.amount;
                 else { expenseSum += t.amount; chartAgg[t.primaryCate] = (chartAgg[t.primaryCate] || 0) + t.amount; }
                 const sign = t.type === 'INCOME' ? '+' : '-';
@@ -1390,20 +1500,59 @@
                     remarkHtml = `<div class="remark-badge">💬 ${escapeHtml(shortRemark)}</div>`;
                 }
                 
-                html += `<div class="item">
-                    <div class="item-left">
-                        <div>
-                            <span class="cate-tag">${escapeHtml(t.primaryCate)}</span>
-                            <span class="sub-tag">${escapeHtml(t.subCate)}${importTag}</span>
+                if (isEditing) {
+                    // 编辑模式
+                    const allPrimaryKeys = Object.keys(storage.categories[t.type] || {});
+                    const subList = storage.categories[t.type]?.[t.primaryCate] || [];
+                    
+                    html += `<div class="item editing">
+                        <div style="width:100%;">
+                            <div class="edit-inline">
+                                <select id="edit_type_${t.id}" style="width:80px;">
+                                    <option value="EXPENSE" ${t.type === 'EXPENSE' ? 'selected' : ''}>🌸 支出</option>
+                                    <option value="INCOME" ${t.type === 'INCOME' ? 'selected' : ''}>💰 收入</option>
+                                </select>
+                                <input type="number" id="edit_amount_${t.id}" value="${t.amount}" step="0.01" style="width:80px;">
+                                <select id="edit_primary_${t.id}" style="width:100px;" onchange="updateEditSub('${t.id}')">
+                                    ${allPrimaryKeys.map(p => `<option value="${escapeHtml(p)}" ${p === t.primaryCate ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                                    ${allPrimaryKeys.length === 0 ? '<option value="">-- 无分类 --</option>' : ''}
+                                </select>
+                                <select id="edit_sub_${t.id}" style="width:80px;">
+                                    ${subList.map(s => `<option value="${escapeHtml(s)}" ${s === t.subCate ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+                                    ${subList.length === 0 ? '<option value="日常">日常</option>' : ''}
+                                </select>
+                                <select id="edit_account_${t.id}" style="width:80px;">
+                                    ${storage.accounts.map(a => `<option value="${escapeHtml(a.name)}" ${a.name === t.account ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+                                </select>
+                                <input type="date" id="edit_date_${t.id}" value="${t.date}" style="width:100px;">
+                            </div>
+                            <div class="edit-inline">
+                                <input type="text" id="edit_remark_${t.id}" value="${escapeHtml(t.remark)}" placeholder="备注" style="flex:1; min-width:100px;">
+                                <button class="btn btn-save-edit" onclick="saveEdit('${t.id}')">✅ 保存</button>
+                                <button class="btn btn-cancel-edit" onclick="cancelEdit()">❌ 取消</button>
+                            </div>
                         </div>
-                        ${remarkHtml}
-                        <div class="meta-info">📆 ${t.date} · 💳 ${escapeHtml(t.account)}</div>
-                    </div>
-                    <div class="item-right">
-                        <div class="amt ${amountCls}">${sign} ¥${t.amount.toFixed(2)}</div>
-                        <div class="del-icon" onclick="deleteTransaction('${t.id}')">🗑️ 抹去</div>
-                    </div>
-                </div>`;
+                    </div>`;
+                } else {
+                    // 正常显示模式
+                    html += `<div class="item">
+                        <div class="item-left">
+                            <div>
+                                <span class="cate-tag">${escapeHtml(t.primaryCate)}</span>
+                                <span class="sub-tag">${escapeHtml(t.subCate)}${importTag}</span>
+                            </div>
+                            ${remarkHtml}
+                            <div class="meta-info">📆 ${t.date} · 💳 ${escapeHtml(t.account)}</div>
+                        </div>
+                        <div class="item-right">
+                            <div class="amt ${amountCls}">${sign} ¥${t.amount.toFixed(2)}</div>
+                            <div class="item-actions">
+                                <span class="del-icon" style="background: rgba(96, 165, 250, 0.15); color: #3b82f6;" onclick="startEdit('${t.id}')">✏️ 编辑</span>
+                                <span class="del-icon" onclick="deleteTransaction('${t.id}')">🗑️ 抹去</span>
+                            </div>
+                        </div>
+                    </div>`;
+                }
             });
         }
 
@@ -1412,6 +1561,19 @@
         document.getElementById('netAsset').innerHTML = `¥${totalNet.toFixed(2)}`;
         document.getElementById('historyList').innerHTML = html;
         renderChart(chartAgg);
+    }
+
+    // 编辑时切换子分类
+    function updateEditSub(id) {
+        const type = document.getElementById('edit_type_' + id).value;
+        const primary = document.getElementById('edit_primary_' + id).value;
+        const subSelect = document.getElementById('edit_sub_' + id);
+        const subList = storage.categories[type]?.[primary] || [];
+        if (subList.length === 0) {
+            subSelect.innerHTML = '<option value="日常">日常</option>';
+        } else {
+            subSelect.innerHTML = subList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        }
     }
 
     function renderChart(data) {
@@ -1430,12 +1592,14 @@
     }
 
     window.deleteTransaction = function(id) {
-        const index = storage.transactions.findIndex(t => t.id === id);
-        if (index !== -1) {
-            storage.transactions.splice(index, 1);
-            persist();
-            refreshAll();
-            showToast('✨ 记录已删除');
+        if (confirm('确定要删除这条记录吗？')) {
+            const index = storage.transactions.findIndex(t => t.id === id);
+            if (index !== -1) {
+                storage.transactions.splice(index, 1);
+                persist();
+                refreshAll();
+                showToast('✨ 记录已删除');
+            }
         }
     };
 
@@ -1640,7 +1804,6 @@
         showDeviceInfo();
         initSpeechRecognition();
         
-        // 默认折叠两个面板
         document.getElementById('accountPanel').style.display = 'none';
         document.getElementById('catePanel').style.display = 'none';
         
