@@ -425,7 +425,7 @@
             background: var(--primary-light);
             border-radius: 20px;
             padding: 10px;
-            max-height: 130px;
+            max-height: 200px;
             overflow-y: auto;
             margin-bottom: 14px;
         }
@@ -434,7 +434,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 8px;
+            padding: 6px 8px;
             border-bottom: 1px dashed rgba(205, 200, 224, 0.5);
             font-weight: 600;
             font-size: 12px;
@@ -582,7 +582,6 @@
             cursor: pointer;
         }
 
-        /* 备注在流水中的样式优化 */
         .remark-badge {
             display: inline-block;
             background: rgba(122, 115, 176, 0.12);
@@ -601,6 +600,40 @@
             .remark-badge {
                 max-width: 120px;
             }
+        }
+
+        .account-icon {
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        /* 可折叠面板通用样式 */
+        .foldable-area {
+            margin-top: 20px;
+        }
+
+        .foldable-area .collapsible-content {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .foldable-area .collapsible-content.open {
+            display: block;
+        }
+
+        .foldable-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .foldable-toggle .arrow {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            font-size: 14px;
+        }
+
+        .foldable-toggle .arrow.open {
+            transform: rotate(90deg);
         }
     </style>
 </head>
@@ -659,7 +692,7 @@
                     <select id="txSubCate"></select>
                 </div>
                 <div class="form-group">
-                    <label>🏦 账户</label>
+                    <label>🏦 支付账户</label>
                     <select id="txAccount"></select>
                 </div>
                 <div class="form-group">
@@ -695,30 +728,44 @@
                 <div id="importStatus" style="font-size: 11px; margin-top: 8px; color: var(--text-light);"></div>
             </div>
 
-            <h2>🏦 账户管家</h2>
-            <div class="config-list" id="accountConfigList"></div>
-            <div class="inline-flex">
-                <input type="text" id="newAccountName" placeholder="新账户名">
-                <input type="number" id="newAccountInit" placeholder="初始余额" style="width:75px;">
-                <button class="btn btn-primary" onclick="addCustomAccount()">+</button>
+            <!-- 账户管家 - 可折叠 -->
+            <div class="foldable-area">
+                <h2 class="foldable-toggle" onclick="toggleAccountPanel()">
+                    <span class="arrow">▶</span> 🏦 账户管家
+                </h2>
+                <div id="accountPanel" class="collapsible-content">
+                    <div class="config-list" id="accountConfigList"></div>
+                    <div class="inline-flex">
+                        <input type="text" id="newAccountName" placeholder="新账户名">
+                        <input type="number" id="newAccountInit" placeholder="初始余额" style="width:75px;">
+                        <button class="btn btn-primary" onclick="addCustomAccount()">+</button>
+                    </div>
+                </div>
             </div>
 
-            <h2 style="margin-top: 20px;">🗂️ 自定分类</h2>
-            <div class="form-group">
-                <select id="configType">
-                    <option value="EXPENSE">📉 支出分类</option>
-                    <option value="INCOME">📈 收入分类</option>
-                </select>
-            </div>
-            <div class="config-list" id="cateConfigList"></div>
-            <div class="inline-flex">
-                <input type="text" id="newPrimaryName" placeholder="新主类名">
-                <button class="btn btn-primary" onclick="addPrimaryCategory()">➕主类</button>
-            </div>
-            <div class="inline-flex">
-                <select id="configPrimarySelect" style="flex:2;"></select>
-                <input type="text" id="newSubName" placeholder="子类名称" style="flex:2;">
-                <button class="btn btn-primary" onclick="addSubCategory()">+子类</button>
+            <!-- 自定分类 - 可折叠 -->
+            <div class="foldable-area">
+                <h2 class="foldable-toggle" onclick="toggleCatePanel()">
+                    <span class="arrow">▶</span> 🗂️ 自定分类
+                </h2>
+                <div id="catePanel" class="collapsible-content">
+                    <div class="form-group">
+                        <select id="configType">
+                            <option value="EXPENSE">📉 支出分类</option>
+                            <option value="INCOME">📈 收入分类</option>
+                        </select>
+                    </div>
+                    <div class="config-list" id="cateConfigList"></div>
+                    <div class="inline-flex">
+                        <input type="text" id="newPrimaryName" placeholder="新主类名">
+                        <button class="btn btn-primary" onclick="addPrimaryCategory()">➕主类</button>
+                    </div>
+                    <div class="inline-flex">
+                        <select id="configPrimarySelect" style="flex:2;"></select>
+                        <input type="text" id="newSubName" placeholder="子类名称" style="flex:2;">
+                        <button class="btn btn-primary" onclick="addSubCategory()">+子类</button>
+                    </div>
+                </div>
             </div>
 
             <h2 style="margin-top: 20px;" onclick="toggleSyncPanel()">☁️ GitHub同步 ⏷</h2>
@@ -751,30 +798,83 @@
 </div>
 
 <script>
-    // 存储数据
-    let storage = JSON.parse(localStorage.getItem('gh_ledger_data_v3')) || {
-        accounts: [
-            { name: "微信支付", balance: 0 },
-            { name: "支付宝", balance: 0 },
-            { name: "现金", balance: 0 }
-        ],
+    // ========== 预设账户列表 ==========
+    const PRESET_ACCOUNTS = [
+        { name: "微信支付", icon: "💚" },
+        { name: "支付宝", icon: "💙" },
+        { name: "现金", icon: "💵" },
+        { name: "建行", icon: "🏦" },
+        { name: "招行信用卡", icon: "💳" },
+        { name: "招行储蓄卡", icon: "🏦" },
+        { name: "其他账户", icon: "📁" }
+    ];
+
+    // ========== 支出分类数据 ==========
+    const EXPENSE_CATEGORIES = {
+        "👗 衣服饰品": ["衣服裤子", "鞋帽包包", "化妆饰品"],
+        "🍜 食品酒水": ["超市购物", "早午晚餐", "烟酒茶饮", "水果零食", "烘焙原料"],
+        "🏠 居家物业": ["日常用品", "日化消耗品", "收纳用品", "水电煤气", "房租", "物业费", "维修保养", "家具家电", "清洁用品", "床上用品"],
+        "🚗 行车交通": ["停车费", "公共交通", "打车租车滴滴", "私家车费用", "高速路费", "加油"],
+        "📱 交流通讯": ["手机费", "网络费", "邮寄费"],
+        "🎮 休闲娱乐": ["各种会员", "玩具", "户外用品", "运动健身", "腐败聚会", "休闲玩乐", "宠物宝贝", "旅游度假"],
+        "📚 学习进修": ["学习用品文具", "数码装备", "培训进修", "书报杂志"],
+        "🎁 人情往来": ["养娃", "送礼请客", "孝敬家长"],
+        "🏥 医疗保健": ["药品费", "保健费", "美容费", "治疗费", "狗狗医治保险等"],
+        "💰 金融保险": ["保险", "银行手续", "按揭还款", "配车罚款"],
+        "📦 其他杂项": ["其他支出", "意外丢失"]
+    };
+
+    // ========== 收入分类数据 ==========
+    const INCOME_CATEGORIES = {
+        "💼 职业收入": ["工资收入", "奖金收入", "兼职收入"],
+        "📦 其他收入": ["LG报销", "退款退货", "意外来钱", "信用卡还款", "拼单回款", "礼金收入"]
+    };
+
+    // ========== 初始数据 ==========
+    const INITIAL_DATA = {
+        accounts: PRESET_ACCOUNTS.map(a => ({ name: a.name, balance: 0 })),
         categories: {
-            EXPENSE: { 
-                "🍜 餐饮美食": ["奶茶甜点", "火锅聚餐"], 
-                "🎬 休闲娱乐": ["猫咖撸猫", "电影游戏"] 
-            },
-            INCOME: { 
-                "💼 兼职外快": ["设计稿费", "周末兼职"], 
-                "🎁 生活福利": ["红包惊喜", "退税返利"] 
-            }
+            EXPENSE: JSON.parse(JSON.stringify(EXPENSE_CATEGORIES)),
+            INCOME: JSON.parse(JSON.stringify(INCOME_CATEGORIES))
         },
         transactions: [],
         lastSyncTime: null
     };
 
+    // 使用初始数据
+    let storage = JSON.parse(JSON.stringify(INITIAL_DATA));
+    localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage));
+
     let chartInstance = null;
     let recognition = null;
     let isListening = false;
+
+    // ========== 切换面板函数 ==========
+    function toggleAccountPanel() {
+        const panel = document.getElementById('accountPanel');
+        const arrow = document.querySelector('.foldable-toggle .arrow');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            arrow.classList.add('open');
+            renderAccountManager();
+        } else {
+            panel.style.display = 'none';
+            arrow.classList.remove('open');
+        }
+    }
+
+    function toggleCatePanel() {
+        const panel = document.getElementById('catePanel');
+        const arrow = document.querySelectorAll('.foldable-toggle .arrow')[1];
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            arrow.classList.add('open');
+            renderConfigList();
+        } else {
+            panel.style.display = 'none';
+            arrow.classList.remove('open');
+        }
+    }
 
     // ========== 导入功能 ==========
     function importCSV(file) {
@@ -831,7 +931,7 @@
                     
                     const date = values[dateIdx] || new Date().toISOString().split('T')[0];
                     const type = values[typeIdx] === '收入' ? 'INCOME' : 'EXPENSE';
-                    const primaryCate = values[primaryIdx] || (type === 'INCOME' ? '💼 兼职外快' : '🍜 餐饮美食');
+                    const primaryCate = values[primaryIdx] || '未分类';
                     const subCate = values[subIdx] || '日常';
                     const account = values[accountIdx] || '微信支付';
                     const amount = parseFloat(values[amountIdx]) || 0;
@@ -994,27 +1094,19 @@
             }
         }
         
-        const categoryMap = {
-            '🍜 餐饮美食': ['吃饭', '午餐', '晚餐', '早餐', '外卖', '奶茶', '火锅', '烧烤', '美食', '餐厅', '食堂'],
-            '🎬 休闲娱乐': ['电影', '游戏', '娱乐', '唱歌', 'KTV', '游玩', '旅行', '旅游', '门票'],
-            '💼 兼职外快': ['兼职', '外快', '副业', '设计', '稿费', '项目'],
-            '🎁 生活福利': ['红包', '福利', '补贴', '返利']
-        };
-        
-        for (let [cate, keywords] of Object.entries(categoryMap)) {
-            for (let kw of keywords) {
-                if (text.includes(kw)) {
-                    category = cate;
-                    break;
-                }
+        const allCategories = { ...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES };
+        for (let [cate, subs] of Object.entries(allCategories)) {
+            const cleanCate = cate.replace(/[👗🍜🏠🚗📱🎮📚🎁🏥💰📦💼]/g, '').trim();
+            if (text.includes(cleanCate) || subs.some(s => text.includes(s))) {
+                category = cate;
+                break;
             }
-            if (category) break;
         }
         
         const resultDiv = document.getElementById('voiceResult');
         if (type && amount && amount > 0) {
             const typeText = type === 'INCOME' ? '收入' : '支出';
-            const categoryText = category || (type === 'INCOME' ? '💼 兼职外快' : '🍜 餐饮美食');
+            const categoryText = category || '未分类';
             resultDiv.innerHTML = `✅ 解析完成！<br>📌 ${typeText} ¥${amount.toFixed(2)}<br>📂 ${categoryText}<br>📝 "${remark}"<br>⏳ 3秒后自动保存...`;
             
             setTimeout(() => {
@@ -1029,16 +1121,24 @@
     }
     
     function autoSaveVoiceTransaction(type, amount, primaryCate, remark) {
-        const subList = storage.categories[type]?.[primaryCate] || [];
-        const subCate = subList.length > 0 ? subList[0] : '日常';
+        let subCate = '日常';
+        if (type === 'EXPENSE' && storage.categories.EXPENSE[primaryCate]) {
+            const subList = storage.categories.EXPENSE[primaryCate] || [];
+            subCate = subList.length > 0 ? subList[0] : '日常';
+        } else if (type === 'INCOME' && storage.categories.INCOME[primaryCate]) {
+            const subList = storage.categories.INCOME[primaryCate] || [];
+            subCate = subList.length > 0 ? subList[0] : '收入';
+        }
+        
+        const defaultAccount = storage.accounts.length > 0 ? storage.accounts[0].name : '微信支付';
         
         const newTx = {
             id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             type: type,
             amount: amount,
-            primaryCate: primaryCate,
+            primaryCate: primaryCate || '未分类',
             subCate: subCate,
-            account: storage.accounts[0].name,
+            account: defaultAccount,
             date: new Date().toISOString().split('T')[0],
             remark: remark || '🎤 语音记账',
             createdAt: Date.now(),
@@ -1073,7 +1173,7 @@
         }
     }
 
-    // ========== 原有功能函数 ==========
+    // ========== 核心功能函数 ==========
     function showDeviceInfo() {
         const deviceInfo = document.getElementById('deviceInfo');
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1127,7 +1227,9 @@
         }
     }
 
-    function persist() { localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage)); }
+    function persist() { 
+        localStorage.setItem('gh_ledger_data_v3', JSON.stringify(storage)); 
+    }
 
     function recalcAccountBalances() {
         storage.accounts.forEach(acc => { acc.balance = 0; });
@@ -1142,53 +1244,124 @@
         persist();
     }
 
+    // ========== 渲染账户管家 ==========
+    function renderAccountManager() {
+        const accContainer = document.getElementById('accountConfigList');
+        if (accContainer) {
+            if (storage.accounts.length === 0) {
+                accContainer.innerHTML = '<div class="config-item" style="color: var(--text-light);">暂无账户，请添加</div>';
+                return;
+            }
+            accContainer.innerHTML = storage.accounts.map((acc, idx) => {
+                const preset = PRESET_ACCOUNTS.find(p => p.name === acc.name);
+                const icon = preset ? preset.icon : '📁';
+                return `
+                    <div class="config-item">
+                        <span>${icon} ${escapeHtml(acc.name)}  ¥${acc.balance.toFixed(2)}</span>
+                        <span class="del-btn" onclick="deleteAccount(${idx})">✖</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
     function refreshAll() {
+        // 确保所有预设账户都存在
+        const presetNames = PRESET_ACCOUNTS.map(a => a.name);
+        let needUpdate = false;
+        presetNames.forEach(name => {
+            if (!storage.accounts.find(a => a.name === name)) {
+                storage.accounts.push({ name: name, balance: 0 });
+                needUpdate = true;
+            }
+        });
+        if (needUpdate) persist();
+        
         renderAccountSelect();
         renderCategoryCascade();
-        renderConfigList();
+        
+        // 只在面板展开时渲染内容
+        const accountPanel = document.getElementById('accountPanel');
+        if (accountPanel.style.display === 'block') {
+            renderAccountManager();
+        }
+        const catePanel = document.getElementById('catePanel');
+        if (catePanel.style.display === 'block') {
+            renderConfigList();
+        }
         renderTransactionsAndDashboard();
     }
 
     function renderAccountSelect() {
         const select = document.getElementById('txAccount');
-        if(select) select.innerHTML = storage.accounts.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`).join('');
+        if(select) {
+            let options = '';
+            storage.accounts.forEach(a => {
+                const preset = PRESET_ACCOUNTS.find(p => p.name === a.name);
+                const icon = preset ? preset.icon : '📁';
+                options += `<option value="${escapeHtml(a.name)}">${icon} ${escapeHtml(a.name)}</option>`;
+            });
+            select.innerHTML = options;
+        }
     }
 
     function renderCategoryCascade() {
         const type = document.getElementById('txType').value;
-        const categories = storage.categories[type] || {};
+        let categories;
+        if (type === 'EXPENSE') {
+            categories = storage.categories.EXPENSE || {};
+        } else {
+            categories = storage.categories.INCOME || {};
+        }
         const primarySelect = document.getElementById('txPrimaryCate');
-        primarySelect.innerHTML = Object.keys(categories).map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+        const keys = Object.keys(categories);
+        if (keys.length === 0) {
+            primarySelect.innerHTML = '<option value="">-- 请先在右侧添加分类 --</option>';
+        } else {
+            primarySelect.innerHTML = keys.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+        }
         renderSubCascade();
     }
 
     function renderSubCascade() {
         const type = document.getElementById('txType').value;
         const primary = document.getElementById('txPrimaryCate').value;
-        const subList = storage.categories[type]?.[primary] || [];
+        let subList = [];
+        if (type === 'EXPENSE' && storage.categories.EXPENSE) {
+            subList = storage.categories.EXPENSE[primary] || [];
+        } else if (type === 'INCOME' && storage.categories.INCOME) {
+            subList = storage.categories.INCOME[primary] || [];
+        }
         const subSelect = document.getElementById('txSubCate');
-        subSelect.innerHTML = subList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-        if(subList.length === 0) subSelect.innerHTML = '<option value="日常">日常</option>';
+        if (subList.length === 0) {
+            subSelect.innerHTML = '<option value="日常">日常</option>';
+        } else {
+            subSelect.innerHTML = subList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+        }
     }
 
     function renderConfigList() {
-        const accContainer = document.getElementById('accountConfigList');
-        accContainer.innerHTML = storage.accounts.map((acc, idx) => `
-            <div class="config-item"><span>💰 ${escapeHtml(acc.name)}  ¥${acc.balance.toFixed(2)}</span><span class="del-btn" onclick="deleteAccount(${idx})">✖</span></div>
-        `).join('');
-
+        // 渲染分类列表
         const type = document.getElementById('configType').value;
-        const cateData = storage.categories[type];
+        const cateData = storage.categories[type] || {};
         let cateHtml = '';
-        for (let [pri, subs] of Object.entries(cateData)) {
-            cateHtml += `<div style="margin-top:6px; font-weight:800; color:var(--primary);">📁 ${escapeHtml(pri)} <span class="del-btn" style="display:inline-block; margin-left:8px;" onclick="deletePrimaryCategory('${type}','${escapeHtml(pri)}')">🗑</span></div>`;
-            subs.forEach((sub, idx) => {
-                cateHtml += `<div class="config-item" style="padding-left:14px;"><span>└ ${escapeHtml(sub)}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${escapeHtml(pri)}',${idx})">✖</span></div>`;
-            });
+        const keys = Object.keys(cateData);
+        if (keys.length === 0) {
+            cateHtml = '<div class="config-item" style="color: var(--text-light);">暂无分类，点击下方添加</div>';
+        } else {
+            for (let [pri, subs] of Object.entries(cateData)) {
+                cateHtml += `<div style="margin-top:4px; font-weight:800; color:var(--primary);">📁 ${escapeHtml(pri)} <span class="del-btn" style="display:inline-block; margin-left:8px;" onclick="deletePrimaryCategory('${type}','${escapeHtml(pri)}')">🗑</span></div>`;
+                subs.forEach((sub, idx) => {
+                    cateHtml += `<div class="config-item" style="padding-left:14px;"><span>└ ${escapeHtml(sub)}</span><span class="del-btn" onclick="deleteSubCategory('${type}','${escapeHtml(pri)}',${idx})">✖</span></div>`;
+                });
+            }
         }
-        document.getElementById('cateConfigList').innerHTML = cateHtml || '<div class="config-item">暂无分类</div>';
+        document.getElementById('cateConfigList').innerHTML = cateHtml;
         const primarySelect = document.getElementById('configPrimarySelect');
         primarySelect.innerHTML = Object.keys(cateData).map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+        if (Object.keys(cateData).length === 0) {
+            primarySelect.innerHTML = '<option value="">-- 暂无分类 --</option>';
+        }
     }
 
     function renderTransactionsAndDashboard() {
@@ -1211,7 +1384,6 @@
                 const amountCls = t.type === 'INCOME' ? 'INCOME' : 'EXPENSE';
                 const importTag = t.imported ? ' 📥' : '';
                 
-                // 备注显示 - 如果有备注内容则显示
                 let remarkHtml = '';
                 if (t.remark && t.remark.length > 0 && t.remark !== '无痕' && t.remark !== '✨ 桃气笔记') {
                     const shortRemark = t.remark.length > 30 ? t.remark.substring(0, 30) + '...' : t.remark;
@@ -1268,6 +1440,12 @@
     };
 
     window.deleteAccount = function(idx) {
+        const accountName = storage.accounts[idx].name;
+        const isPreset = PRESET_ACCOUNTS.some(a => a.name === accountName);
+        if (isPreset) {
+            showToast("⚠️ 预设账户不能删除", true);
+            return;
+        }
         if(storage.accounts.length <= 1) { showToast("至少保留一个账户", true); return; }
         storage.accounts.splice(idx, 1);
         persist();
@@ -1302,17 +1480,28 @@
     };
 
     window.deletePrimaryCategory = function(type, pri) {
-        if(confirm(`删除 "${pri}" 整个类别？`)) {
-            delete storage.categories[type][pri];
-            persist();
-            refreshAll();
-            showToast(`已删除分类: ${pri}`);
+        const isPresetExpense = type === 'EXPENSE' && EXPENSE_CATEGORIES[pri];
+        const isPresetIncome = type === 'INCOME' && INCOME_CATEGORIES[pri];
+        if (isPresetExpense || isPresetIncome) {
+            if(confirm(`"${pri}" 是预设分类，确定要删除吗？`)) {
+                delete storage.categories[type][pri];
+                persist();
+                refreshAll();
+                showToast(`已删除分类: ${pri}`);
+            }
+        } else {
+            if(confirm(`删除 "${pri}" 整个类别？`)) {
+                delete storage.categories[type][pri];
+                persist();
+                refreshAll();
+                showToast(`已删除分类: ${pri}`);
+            }
         }
     };
 
     window.deleteSubCategory = function(type, pri, idx) {
         storage.categories[type][pri].splice(idx, 1);
-        if(storage.categories[type][pri].length === 0) storage.categories[type][pri].push("其他");
+        if(storage.categories[type][pri].length === 0) storage.categories[type][pri].push("默认");
         persist();
         refreshAll();
         showToast('子类已删除');
@@ -1323,6 +1512,10 @@
         const pri = document.getElementById('configPrimarySelect').value;
         const subName = document.getElementById('newSubName').value.trim();
         if(!pri || !subName) { showToast("请选择主类并输入子类名称", true); return; }
+        if(!storage.categories[type]) storage.categories[type] = {};
+        if(!storage.categories[type][pri]) { 
+            storage.categories[type][pri] = [];
+        }
         if(storage.categories[type][pri].includes(subName)) { showToast("子类已存在", true); return; }
         storage.categories[type][pri].push(subName);
         persist();
@@ -1332,19 +1525,11 @@
     };
 
     window.resetDemoData = function() {
-        if(confirm("重置会清除所有数据，恢复为空账本。确定吗？")) {
-            storage = {
-                accounts: [{ name: "微信支付", balance: 0 }, { name: "支付宝", balance: 0 }, { name: "现金", balance: 0 }],
-                categories: {
-                    EXPENSE: { "🍜 餐饮美食": ["奶茶甜点", "火锅聚餐"], "🎬 休闲娱乐": ["猫咖撸猫", "电影游戏"] },
-                    INCOME: { "💼 兼职外快": ["设计稿费", "周末兼职"], "🎁 生活福利": ["红包惊喜", "退税返利"] }
-                },
-                transactions: [],
-                lastSyncTime: null
-            };
+        if(confirm("重置会清除所有数据，恢复为初始分类。确定吗？")) {
+            storage = JSON.parse(JSON.stringify(INITIAL_DATA));
             persist();
             refreshAll();
-            showToast('🔄 已重置为空账本');
+            showToast('🔄 已重置');
         }
     };
 
@@ -1356,11 +1541,16 @@
 
     document.getElementById('ledgerForm').addEventListener('submit', (e) => {
         e.preventDefault();
+        const primaryCate = document.getElementById('txPrimaryCate').value;
+        if (!primaryCate) {
+            showToast("⚠️ 请先在右侧添加分类", true);
+            return;
+        }
         const newTx = {
             id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             type: document.getElementById('txType').value,
             amount: parseFloat(document.getElementById('txAmount').value),
-            primaryCate: document.getElementById('txPrimaryCate').value,
+            primaryCate: primaryCate,
             subCate: document.getElementById('txSubCate').value || '日常',
             account: document.getElementById('txAccount').value,
             date: document.getElementById('txDate').value,
@@ -1428,7 +1618,6 @@
         if(storage.transactions.length === 0) { showToast("暂无数据可导出", true); return; }
         let csvRows = [["ID","日期","类型","主分类","子分类","账户","金额","备注"]];
         storage.transactions.forEach(t => { 
-            // 备注字段处理，确保多行文本正确导出
             const remark = (t.remark || '').replace(/"/g, '""').replace(/\n/g, ' ');
             csvRows.push([t.id, t.date, t.type === 'INCOME' ? '收入' : '支出', t.primaryCate, t.subCate, t.account, t.amount.toFixed(2), remark]); 
         });
@@ -1451,6 +1640,10 @@
         showDeviceInfo();
         initSpeechRecognition();
         
+        // 默认折叠两个面板
+        document.getElementById('accountPanel').style.display = 'none';
+        document.getElementById('catePanel').style.display = 'none';
+        
         document.getElementById('voiceBtn').onclick = toggleVoiceRecognition;
         document.getElementById('pushBtn').onclick = pushToCloud;
         document.getElementById('pullBtn').onclick = pullFromCloud;
@@ -1470,7 +1663,11 @@
         
         document.getElementById('txType').addEventListener('change', () => renderCategoryCascade());
         document.getElementById('txPrimaryCate').addEventListener('change', () => renderSubCascade());
-        document.getElementById('configType').addEventListener('change', () => renderConfigList());
+        document.getElementById('configType').addEventListener('change', () => {
+            if (document.getElementById('catePanel').style.display === 'block') {
+                renderConfigList();
+            }
+        });
         
         if (window.location.protocol === 'file:') { setTimeout(() => { showToast("⚠️ 本地文件无法同步，请部署到服务器", true); }, 1000); }
     };
